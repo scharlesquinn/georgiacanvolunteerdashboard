@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeorgiaCAN — Live Volunteer Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #f5f5f5; color: #222; min-height: 100vh; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px; }
+  .topbar h1 { font-size: 20px; font-weight: 600; color: #1B3A6B; }
+  .status-row { display: flex; align-items: center; gap: 10px; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #aaa; flex-shrink: 0; }
+  .status-dot.live { background: #1D9E75; }
+  .status-dot.error { background: #E24B4A; }
+  .last-upd { font-size: 12px; color: #777; }
+  .refresh-btn { font-size: 13px; padding: 6px 14px; border-radius: 8px; border: 1px solid #ccc; background: white; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #444; }
+  .refresh-btn:hover { background: #f0f0f0; }
+  .setup-card { background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .setup-card h2 { font-size: 14px; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+  .setup-desc { font-size: 13px; color: #666; margin-bottom: 14px; line-height: 1.6; }
+  .input-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .input-row input { flex: 1; min-width: 220px; font-size: 13px; padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; font-family: monospace; }
+  .input-row input:focus { outline: none; border-color: #185FA5; box-shadow: 0 0 0 3px rgba(24,95,165,0.1); }
+  .btn-primary { font-size: 13px; padding: 8px 18px; border-radius: 8px; border: none; background: #1B3A6B; color: white; cursor: pointer; font-weight: 500; white-space: nowrap; }
+  .btn-primary:hover { background: #2E5FA3; }
+  .err-msg { font-size: 12px; color: #E24B4A; margin-top: 8px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
+  .kpi { background: white; border-radius: 10px; padding: 14px 16px; border: 1px solid #e8e8e8; }
+  .kpi-label { font-size: 11px; color: #888; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .5px; }
+  .kpi-val { font-size: 28px; font-weight: 600; color: #185FA5; }
+  .kpi-val.gold { color: #BA7517; }
+  .kpi-val.green { color: #3B6D11; }
+  .kpi-val.teal { color: #0F6E56; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 1.5rem; }
+  @media(max-width: 620px) { .two-col { grid-template-columns: 1fr; } }
+  .card { background: white; border: 1px solid #e8e8e8; border-radius: 12px; padding: 1.25rem; }
+  .card h2 { font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px; }
+  .tier-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .tier-label { font-size: 13px; width: 90px; flex-shrink: 0; }
+  .tier-bar-wrap { flex: 1; background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden; }
+  .tier-bar { height: 8px; border-radius: 4px; transition: width .5s ease; }
+  .tier-count { font-size: 12px; color: #888; width: 44px; text-align: right; }
+  .vol-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .vol-table th { font-size: 11px; font-weight: 600; color: #888; text-align: left; padding: 7px 8px; border-bottom: 1px solid #eee; text-transform: uppercase; letter-spacing: .3px; }
+  .vol-table td { padding: 8px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  .vol-table tr:last-child td { border-bottom: none; }
+  .vol-table tr:hover td { background: #fafafa; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; font-weight: 600; }
+  .b-c { background: #FAEEDA; color: #633806; }
+  .b-h { background: #E6F1FB; color: #0C447C; }
+  .b-a { background: #EAF3DE; color: #27500A; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+  .dot-y { background: #1D9E75; }
+  .dot-n { background: #ddd; }
+  .search-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .search-row input, .search-row select { font-size: 13px; padding: 7px 10px; border-radius: 8px; border: 1px solid #ccc; }
+  .search-row input { flex: 1; min-width: 160px; }
+  .search-row input:focus, .search-row select:focus { outline: none; border-color: #185FA5; }
+  .pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; font-size: 12px; color: #888; margin-top: 10px; }
+  .pager button { padding: 4px 10px; font-size: 12px; border-radius: 7px; border: 1px solid #ccc; background: white; cursor: pointer; }
+  .pager button:hover:not(:disabled) { background: #f0f0f0; }
+  .pager button:disabled { opacity: .4; cursor: default; }
+  .spin { display: inline-block; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <h1>GeorgiaCAN — Live Volunteer Dashboard</h1>
+    <div class="status-row">
+      <span class="status-dot" id="statusDot"></span>
+      <span class="last-upd" id="lastUpd">Not connected</span>
+      <button class="refresh-btn hidden" id="refreshBtn" onclick="loadData()">
+        <svg width="13" height="13" viewBox="0 0 16 16"><path d="M13.65 2.35A8 8 0 1 0 15 8h-2a6 6 0 1 1-1.05-3.35L9 7h6V1l-1.35 1.35z" fill="currentColor"/></svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <div id="errMsg" class="err-msg" style="margin-bottom:8px"></div>
+
+  <div id="kpiGrid" class="kpi-grid hidden"></div>
+
+  <div id="twoCol" class="two-col hidden">
+    <div class="card">
+      <h2>Engagement tiers</h2>
+      <div id="tierBars"></div>
+    </div>
+    <div class="card">
+      <h2>Top volunteers</h2>
+      <table class="vol-table" id="top10Table"></table>
+    </div>
+  </div>
+
+  <div id="fullCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>High-yield volunteers (10+ actions)</h2>
+    <div class="search-row">
+      <input type="text" id="searchInput" placeholder="Search by name..." oninput="filterTable()">
+      <select id="tierFilter" onchange="filterTable()">
+        <option value="">All tiers</option>
+        <option value="Champion">Champion</option>
+        <option value="High Yield">High Yield</option>
+        <option value="Active">Active</option>
+      </select>
+    </div>
+    <table class="vol-table">
+      <thead><tr>
+        <th>#</th><th>Name</th><th>2025-26</th><th>Lifetime</th><th>Tier</th>
+        <th title="Capitol Day 2026">C'26</th>
+        <th title="Capitol Day 2025">C'25</th>
+        <th title="1:1 Meeting">1:1</th>
+        <th title="EPIC Graduate">EPIC</th>
+      </tr></thead>
+      <tbody id="fullBody"></tbody>
+    </table>
+    <div class="pager">
+      <span id="pageInfo"></span>
+      <button id="prevBtn" onclick="changePage(-1)">← Prev</button>
+      <button id="nextBtn" onclick="changePage(1)">Next →</button>
+    </div>
+  </div>
+
+  <div id="emergingCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>Emerging volunteers (1–4 actions)</h2>
+    <div class="search-row">
+      <input type="text" id="emergingSearch" placeholder="Search by name..." oninput="filterEmerging()">
+    </div>
+    <table class="vol-table">
+      <thead><tr>
+        <th>#</th><th>Name</th><th>2025-26 Actions</th><th>Lifetime Actions</th><th>C'26</th><th>C'25</th><th>1:1</th><th>EPIC</th>
+      </tr></thead>
+      <tbody id="emergingBody"></tbody>
+    </table>
+    <div class="pager">
+      <span id="emergingPageInfo"></span>
+      <button id="emergingPrevBtn" onclick="changeEmergingPage(-1)">← Prev</button>
+      <button id="emergingNextBtn" onclick="changeEmergingPage(1)">Next →</button>
+    </div>
+  </div>
+
+  <div id="chartCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>Monthly event attendance (2025–2026)</h2>
+    <div style="position:relative;height:220px"><canvas id="monthlyChart"></canvas></div>
+  </div>
+</div>
+
+<script>
+const SHEET_ID = '1rOg3OUdTmrsqlaimq_L4iKkBQFsKyGkuMxMJxJt4GtU';
+const SHEETS = {
+  master: 'Master Parent Action List',
+  cap26: '2026 Capitol Day Signups',
+  cap25: 'Capitol Day Attendees',
+  missy: 'Archive of Missy 11s',
+  tysheka: 'TySheka 11s',
+  missy26: '2026 Missy 11s',
+  epic26: 'EPIC Graduates 2026',
+  epic25: '2025 EPIC graduates',
+  events26: '2026 GeorgiaCAN Events',
+  events25: '2025 GeorgiaCAN Events',
+  emails: '2026 GeorgiaCAN Emails to Lawma',
+};
+
+let apiKey = 'AIzaSyDzoT54YqkxA9Z2QBfiBzcfNs9m4k9aTzU';
+let allVolunteers = [];
+let filtered = [];
+let currentPage = 1;
+const PAGE_SIZE = 15;
+let chartInst = null;
+let emergingFiltered = [];
+let emergingPage = 1;
+const EMERGING_PAGE_SIZE = 15;
+
+function dot(v) { return `<span class="dot ${v ? 'dot-y' : 'dot-n'}"></span>`; }
+
+async function fetchSheet(name) {
+  const enc = encodeURIComponent("'" + name + "'");
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${enc}?key=${apiKey}`;
+  const r = await fetch(url);
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || 'API error'); }
+  const d = await r.json();
+  return d.values || [];
+}
+
+function rowsToObjs(rows) {
+  if (!rows.length) return [];
+  const hdr = rows[0];
+  return rows.slice(1).map(r => Object.fromEntries(hdr.map((h, i) => [h, (r[i] ?? '').toString().trim()])));
+}
+
+function nameKey(fn, ln) { return `${fn} ${ln}`.trim().toLowerCase(); }
+
+
+
+async function loadData() {
+  if (!apiKey) return;
+  setStatus('loading', 'Loading data...');
+  const btn = document.getElementById('refreshBtn');
+  btn.innerHTML = '<span class="spin">↻</span> Loading';
+  btn.disabled = true;
+
+  const [masterRaw, cap26Raw, cap25Raw, missyRaw, tyshekaRaw, missy26Raw, epic26Raw, epic25Raw, ev26Raw, ev25Raw, emailsRaw] = await Promise.all([
+    fetchSheet(SHEETS.master), fetchSheet(SHEETS.cap26), fetchSheet(SHEETS.cap25),
+    fetchSheet(SHEETS.missy).catch(()=>[]), fetchSheet(SHEETS.tysheka).catch(()=>[]), fetchSheet(SHEETS.missy26).catch(()=>[]),
+    fetchSheet(SHEETS.epic26), fetchSheet(SHEETS.epic25),
+    fetchSheet(SHEETS.events26), fetchSheet(SHEETS.events25),
+    fetchSheet(SHEETS.emails).catch(()=>[]),
+  ]);
+
+  const cap26Set = new Set(rowsToObjs(cap26Raw)
+    .map(r => nameKey(r['advocate_name_first'] || '', r['advocate_name_last'] || '')).filter(Boolean));
+  const cap25Set = new Set(rowsToObjs(cap25Raw)
+    .map(r => nameKey(r['First Name'] || '', r['Last Name'] || '')).filter(Boolean));
+  // All 11s sheets have staffer name in col 0, First Name in col 1, Last Name in col 2
+  // None have reliable headers so we always read by column position, skip row 0 (header)
+  function namesFromRaw(raw) {
+    if (!raw || raw.length < 2) return [];
+    return raw.slice(1).map(r => nameKey(r[1] || '', r[2] || '')).filter(Boolean);
+  }
+  const ooSet = new Set([
+    ...namesFromRaw(missyRaw),
+    ...namesFromRaw(tyshekaRaw),
+    ...namesFromRaw(missy26Raw),
+  ]);
+  const epicSet = new Set([
+    ...rowsToObjs(epic26Raw).map(r => nameKey(r['Name (First)'] || '', r['Name (Last)'] || '')),
+    ...rowsToObjs(epic25Raw).map(r => nameKey(r['First Name'] || '', r['Last Name'] || '')),
+  ].filter(Boolean));
+
+  allVolunteers = rowsToObjs(masterRaw).map(r => {
+    const fn = (r['First Name'] || '').trim();
+    const ln = (r['Last Name'] || '').trim();
+    const full = (r['Full Name '] || r['Full Name'] || `${fn} ${ln}`).trim();
+    const actions = parseFloat(r['# of Actions Taken in 2025-2026']) || 0;
+    const lifetime = parseFloat(r['Total # of Actions Overtime']) || 0;
+    const memberships = parseFloat(r['Total Memberships p2A']) || 0;
+    const key = nameKey(fn, ln);
+    return { name: full, actions, lifetime, memberships,
+      cap26: cap26Set.has(key), cap25: cap25Set.has(key),
+      oo: ooSet.has(key), epic: epicSet.has(key) };
+  }).filter(v => v.name && v.name.length > 1)
+    .sort((a, b) => b.actions - a.actions);
+
+  allVolunteers.forEach(v => {
+    v.tier = v.actions >= 20 ? 'Champion' : v.actions >= 10 ? 'High Yield' : v.actions >= 5 ? 'Active' : v.actions >= 1 ? 'Emerging' : 'Inactive';
+  });
+
+  const monthly = {};
+  [...rowsToObjs(ev25Raw), ...rowsToObjs(ev26Raw)].forEach(r => {
+    const d = r['Date'] || '';
+    const att = parseInt(r['Total Number of Attendees']) || 0;
+    if (d && att && !isNaN(new Date(d).getTime())) {
+      const key = new Date(d).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      monthly[key] = (monthly[key] || 0) + att;
+    }
+  });
+
+  // Parse emails & calls to lawmakers using raw row positions (col 1 = event, col 2 = count)
+  // The sheet has a header row so data starts at index 1
+  // Total emails grand total is stored in row 1, col 4
+  // Phone calls rows have 'phone' in the event name (col 1)
+  let totalEmails = 0, totalCalls = 0;
+  const emailDataRows = emailsRaw.length > 1 ? emailsRaw.slice(1) : emailsRaw;
+  emailDataRows.forEach(r => {
+    const eventName = (r[1] || '').toString().toLowerCase();
+    const count = parseInt(r[2]) || 0;
+    if (!eventName || count === 0) return;
+    if (eventName.includes('phone') || eventName.includes('call')) {
+      totalCalls += count;
+    } else {
+      totalEmails += count;
+    }
+  });
+  // Fallback to grand total stored in col 4 of first data row if sum is 0
+  if (totalEmails === 0 && emailsRaw.length > 1) {
+    const grandTotal = parseInt(emailsRaw[1][4]) || 0;
+    if (grandTotal > 0) totalEmails = grandTotal - totalCalls;
+  }
+
+  renderDashboard(monthly, totalEmails, totalCalls);
+  setStatus('live', 'Live — updated ' + new Date().toLocaleTimeString());
+  
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16"><path d="M13.65 2.35A8 8 0 1 0 15 8h-2a6 6 0 1 1-1.05-3.35L9 7h6V1l-1.35 1.35z" fill="currentColor"/></svg> Refresh';
+  btn.disabled = false;
+  btn.classList.remove('hidden');
+}
+
+function setStatus(state, msg) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot' + (state === 'live' ? ' live' : state === 'error' ? ' error' : '');
+  document.getElementById('lastUpd').textContent = msg;
+}
+
+function renderDashboard(monthly, totalEmails=664, totalCalls=345) {
+  const total = allVolunteers.length;
+  const champions = allVolunteers.filter(v => v.tier === 'Champion').length;
+  const highYield = allVolunteers.filter(v => v.tier === 'High Yield').length;
+  const active = allVolunteers.filter(v => v.tier === 'Active').length;
+  const emerging = allVolunteers.filter(v => v.tier === 'Emerging').length;
+  const inactive = allVolunteers.filter(v => v.tier === 'Inactive').length;
+  const totalAct = allVolunteers.reduce((s, v) => s + v.actions, 0);
+  const cap26c = allVolunteers.filter(v => v.cap26).length;
+
+  const kpiEl = document.getElementById('kpiGrid');
+  kpiEl.classList.remove('hidden');
+  kpiEl.innerHTML = [
+    { l: 'Total volunteers', v: total.toLocaleString(), c: '' },
+    { l: 'Champions (20+)', v: champions, c: 'gold' },
+    { l: 'High yield (10–19)', v: highYield, c: '' },
+    { l: 'Active (5–9)', v: active, c: 'green' },
+    { l: 'Total actions', v: totalAct.toLocaleString(), c: 'teal' },
+    { l: 'Capitol day 2026', v: cap26c, c: '' },
+    { l: 'Emails to lawmakers', v: totalEmails.toLocaleString(), c: '' },
+    { l: 'Calls to lawmakers', v: totalCalls.toLocaleString(), c: 'green' },
+  ].map(k => `<div class="kpi"><div class="kpi-label">${k.l}</div><div class="kpi-val ${k.c}">${k.v}</div></div>`).join('');
+
+  const tierCounts = { Champion: champions, 'High Yield': highYield, Active: active, Emerging: emerging, Inactive: inactive };
+  const tierColors = { Champion: '#BA7517', 'High Yield': '#185FA5', Active: '#3B6D11', Emerging: '#888780', Inactive: '#D3D1C7' };
+  const maxT = Math.max(...Object.values(tierCounts));
+  document.getElementById('tierBars').innerHTML = Object.entries(tierCounts).map(([name, count]) =>
+    `<div class="tier-row">
+      <span class="tier-label">${name}</span>
+      <div class="tier-bar-wrap"><div class="tier-bar" style="width:${Math.round(count / maxT * 100)}%;background:${tierColors[name]}"></div></div>
+      <span class="tier-count">${count.toLocaleString()}</span>
+    </div>`).join('');
+
+  const medals = ['🥇', '🥈', '🥉'];
+  document.getElementById('top10Table').innerHTML =
+    `<thead><tr><th></th><th>Name</th><th>Actions</th><th>C'26</th><th>C'25</th></tr></thead><tbody>` +
+    allVolunteers.slice(0, 10).map((v, i) => `<tr>
+      <td style="font-size:15px">${medals[i] || `<span style="font-size:12px;color:#aaa">#${i + 1}</span>`}</td>
+      <td style="font-weight:600;font-size:13px">${v.name}</td>
+      <td style="font-size:15px;font-weight:700;color:#185FA5">${v.actions}</td>
+      <td>${dot(v.cap26)}</td><td>${dot(v.cap25)}</td>
+    </tr>`).join('') + '</tbody>';
+
+  document.getElementById('twoCol').classList.remove('hidden');
+  document.getElementById('fullCard').classList.remove('hidden');
+  document.getElementById('emergingCard').classList.remove('hidden');
+  document.getElementById('chartCard').classList.remove('hidden');
+
+  filtered = allVolunteers.filter(v => v.actions >= 10);
+  currentPage = 1;
+  renderTable();
+
+  emergingFiltered = allVolunteers.filter(v => v.tier === 'Emerging');
+  emergingPage = 1;
+  renderEmergingTable();
+
+  const sortedMonths = Object.keys(monthly).sort((a, b) => new Date(a) - new Date(b));
+  if (chartInst) { chartInst.destroy(); }
+  chartInst = new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+      labels: sortedMonths,
+      datasets: [{ label: 'Attendees', data: sortedMonths.map(k => monthly[k]),
+        backgroundColor: '#B5D4F4', borderColor: '#185FA5', borderWidth: 1, borderRadius: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 11 }, maxRotation: 45, autoSkip: false }, grid: { display: false } },
+        y: { ticks: { font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+}
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const t = document.getElementById('tierFilter').value;
+  filtered = allVolunteers.filter(v => v.actions >= 10 && (!q || v.name.toLowerCase().includes(q)) && (!t || v.tier === t));
+  currentPage = 1;
+  renderTable();
+}
+
+function renderTable() {
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const page = filtered.slice(start, start + PAGE_SIZE);
+  document.getElementById('fullBody').innerHTML = page.map((v, i) => `<tr>
+    <td style="color:#aaa;font-size:13px">${start + i + 1}</td>
+    <td style="font-weight:600;font-size:13px">${v.name}</td>
+    <td style="font-size:15px;font-weight:700;color:#185FA5">${v.actions}</td>
+    <td style="color:#888;font-size:12px">${v.lifetime}</td>
+    <td><span class="badge ${v.tier === 'Champion' ? 'b-c' : v.tier === 'High Yield' ? 'b-h' : 'b-a'}">${v.tier}</span></td>
+    <td>${dot(v.cap26)}</td><td>${dot(v.cap25)}</td>
+    <td>${dot(v.oo)}</td><td>${dot(v.epic)}</td>
+  </tr>`).join('');
+  const pages = Math.ceil(filtered.length / PAGE_SIZE);
+  document.getElementById('pageInfo').textContent = `${start + 1}–${Math.min(start + PAGE_SIZE, filtered.length)} of ${filtered.length}`;
+  document.getElementById('prevBtn').disabled = currentPage <= 1;
+  document.getElementById('nextBtn').disabled = currentPage >= pages;
+}
+
+function changePage(dir) {
+  currentPage = Math.max(1, Math.min(Math.ceil(filtered.length / PAGE_SIZE), currentPage + dir));
+  renderTable();
+}
+
+function filterEmerging() {
+  const q = document.getElementById('emergingSearch').value.toLowerCase();
+  emergingFiltered = allVolunteers.filter(v => v.tier === 'Emerging' && (!q || v.name.toLowerCase().includes(q)));
+  emergingPage = 1;
+  renderEmergingTable();
+}
+
+function renderEmergingTable() {
+  const start = (emergingPage - 1) * EMERGING_PAGE_SIZE;
+  const page = emergingFiltered.slice(start, start + EMERGING_PAGE_SIZE);
+  document.getElementById('emergingBody').innerHTML = page.map((v, i) => `<tr>
+    <td style="color:#aaa;font-size:13px">${start + i + 1}</td>
+    <td style="font-weight:600;font-size:13px">${v.name}</td>
+    <td style="font-size:15px;font-weight:700;color:#185FA5">${v.actions}</td>
+    <td style="color:#888;font-size:12px">${v.lifetime}</td>
+    <td>${dot(v.cap26)}</td><td>${dot(v.cap25)}</td>
+    <td>${dot(v.oo)}</td><td>${dot(v.epic)}</td>
+  </tr>`).join('');
+  const pages = Math.ceil(emergingFiltered.length / EMERGING_PAGE_SIZE);
+  document.getElementById('emergingPageInfo').textContent = `${start + 1}–${Math.min(start + EMERGING_PAGE_SIZE, emergingFiltered.length)} of ${emergingFiltered.length}`;
+  document.getElementById('emergingPrevBtn').disabled = emergingPage <= 1;
+  document.getElementById('emergingNextBtn').disabled = emergingPage >= pages;
+}
+
+function changeEmergingPage(dir) {
+  const pages = Math.ceil(emergingFiltered.length / EMERGING_PAGE_SIZE);
+  emergingPage = Math.max(1, Math.min(pages, emergingPage + dir));
+  renderEmergingTable();
+}
+
+// Auto-load on page open
+window.addEventListener('load', () => loadData().catch(e => {
+  document.getElementById('errMsg').textContent = 'Error loading data: ' + e.message;
+  setStatus('error', 'Failed to load');
+}));
+</script>
+</body>
+</html>
