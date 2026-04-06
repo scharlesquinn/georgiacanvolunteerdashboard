@@ -143,9 +143,54 @@
     </div>
   </div>
 
+  <div id="activeCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>Active volunteers (5–9 actions)</h2>
+    <div class="search-row">
+      <input type="text" id="activeSearch" placeholder="Search by name..." oninput="filterActive()">
+    </div>
+    <table class="vol-table">
+      <thead><tr>
+        <th>#</th><th>Name</th><th>2025-26</th><th>Lifetime</th><th>Tier</th>
+        <th title="Capitol Day 2026">C'26</th>
+        <th title="Capitol Day 2025">C'25</th>
+        <th title="1:1 Meeting">1:1</th>
+        <th title="EPIC Graduate">EPIC</th>
+      </tr></thead>
+      <tbody id="activeBody"></tbody>
+    </table>
+    <div class="pager">
+      <span id="activePageInfo"></span>
+      <button id="activePrevBtn" onclick="changeActivePage(-1)">← Prev</button>
+      <button id="activeNextBtn" onclick="changeActivePage(1)">Next →</button>
+    </div>
+  </div>
+
+  <div id="countyCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>Advocates by county</h2>
+    <div class="search-row">
+      <input type="text" id="countySearch" placeholder="Search county..." oninput="filterCounty()">
+    </div>
+    <table class="vol-table">
+      <thead><tr>
+        <th>#</th><th>County</th><th>Unique Advocates</th>
+      </tr></thead>
+      <tbody id="countyBody"></tbody>
+    </table>
+    <div class="pager">
+      <span id="countyPageInfo"></span>
+      <button id="countyPrevBtn" onclick="changeCountyPage(-1)">← Prev</button>
+      <button id="countyNextBtn" onclick="changeCountyPage(1)">Next →</button>
+    </div>
+  </div>
+
   <div id="chartCard" class="card hidden" style="margin-bottom:1.5rem">
     <h2>Monthly event attendance (2025–2026)</h2>
     <div style="position:relative;height:220px"><canvas id="monthlyChart"></canvas></div>
+  </div>
+
+  <div id="lawmakerCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>Emails sent to elected officials</h2>
+    <div id="lawmakerChartWrap" style="position:relative;"></div>
   </div>
 </div>
 
@@ -156,13 +201,16 @@ const SHEETS = {
   cap26: '2026 Capitol Day Signups',
   cap25: 'Capitol Day Attendees',
   missy: 'Archive of Missy 11s',
-  tysheka: 'TySheka 11s',
-  missy26: '2026 Missy 11s',
-  epic26: 'EPIC Graduates 2026',
-  epic25: '2025 EPIC graduates',
+  tysheka: '2026 TySheka 1:1s',
+  missy26: "2026 Missy 1:1s",
+  epicAll: 'All EPIC graduates',
   events26: '2026 GeorgiaCAN Events',
   events25: '2025 GeorgiaCAN Events',
-  emails: '2026 GeorgiaCAN Emails to Lawma',
+  emails: '2026 GeorgiaCAN Emails to Lawmakers',
+  electedEmails: 'Emails sent to elected officials',
+  advocateCalls: 'The # of advocates who called lawmakers',
+  parentActions: 'Parent Action Data',
+  p2a: 'P2A Data',
 };
 
 let apiKey = 'AIzaSyAj9DGhCarUjrwjFYanFFVrfmV0SSI_7wY';
@@ -174,13 +222,24 @@ let chartInst = null;
 let emergingFiltered = [];
 let emergingPage = 1;
 const EMERGING_PAGE_SIZE = 15;
+let activeFiltered = [];
+let activePage = 1;
+const ACTIVE_PAGE_SIZE = 15;
+let countyData = [];
+let countyFiltered = [];
+let countyPage = 1;
+const COUNTY_PAGE_SIZE = 20;
+let _missyRaw = [], _missy26Raw = [], _tyshekaRaw = [];
+let _p2aRaw = [], _parentActionsRaw = [];
+let _epicSet = new Set();
 
 function dot(v) { return `<span class="dot ${v ? 'dot-y' : 'dot-n'}"></span>`; }
 
 async function fetchSheet(name) {
   const enc = encodeURIComponent("'" + name + "'");
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${enc}?key=${apiKey}`;
-  const r = await fetch(url);
+  const bust = Date.now();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${enc}?key=${apiKey}&_=${bust}`;
+  const r = await fetch(url, { cache: 'no-store' });
   if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || 'API error'); }
   const d = await r.json();
   return d.values || [];
@@ -196,6 +255,25 @@ function nameKey(fn, ln) { return `${fn} ${ln}`.trim().toLowerCase(); }
 
 
 
+async function fetchEmailTotal() {
+  // Try full sheet name first, then truncated fallback
+  const names = ['2026 GeorgiaCAN Emails to Lawmakers'];
+  for (const name of names) {
+    try {
+      const range = encodeURIComponent("'" + name + "'!F7");
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?key=${apiKey}`;
+      const r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) continue;
+      const d = await r.json();
+      const val = d.values?.[0]?.[0];
+      if (val !== undefined) return [['value'], [val]];
+    } catch(e) { continue; }
+  }
+  // Fallback: fetch whole sheet and sum
+  try { return await fetchSheet('2026 GeorgiaCAN Emails to Lawmakers'); } catch(e) {}
+  return [];
+}
+
 async function loadData() {
   if (!apiKey) return;
   setStatus('loading', 'Loading data...');
@@ -203,18 +281,24 @@ async function loadData() {
   btn.innerHTML = '<span class="spin">↻</span> Loading';
   btn.disabled = true;
 
-  const [masterRaw, cap26Raw, cap25Raw, missyRaw, tyshekaRaw, missy26Raw, epic26Raw, epic25Raw, ev26Raw, ev25Raw, emailsRaw] = await Promise.all([
+  const [masterRaw, cap26Raw, cap25Raw, missyRaw, tyshekaRaw, missy26Raw, ev26Raw, ev25Raw, emailsRaw, p2aRaw, parentActionsRaw, electedEmailsRaw, epicAllRaw, advocateCallsRaw] = await Promise.all([
     fetchSheet(SHEETS.master), fetchSheet(SHEETS.cap26), fetchSheet(SHEETS.cap25),
     fetchSheet(SHEETS.missy).catch(()=>[]), fetchSheet(SHEETS.tysheka).catch(()=>[]), fetchSheet(SHEETS.missy26).catch(()=>[]),
-    fetchSheet(SHEETS.epic26), fetchSheet(SHEETS.epic25),
     fetchSheet(SHEETS.events26), fetchSheet(SHEETS.events25),
-    fetchSheet(SHEETS.emails).catch(()=>[]),
+    fetchEmailTotal().catch(()=>[]),
+    fetchSheet(SHEETS.p2a).catch(()=>[]),
+    fetchSheet(SHEETS.parentActions).catch(()=>[]),
+    fetchSheet(SHEETS.electedEmails).catch(()=>[]),
+    fetchSheet(SHEETS.epicAll).catch(()=>[]),
+    fetchSheet(SHEETS.advocateCalls).catch(()=>[]),
   ]);
 
   const cap26Set = new Set(rowsToObjs(cap26Raw)
     .map(r => nameKey(r['advocate_name_first'] || '', r['advocate_name_last'] || '')).filter(Boolean));
   const cap25Set = new Set(rowsToObjs(cap25Raw)
     .map(r => nameKey(r['First Name'] || '', r['Last Name'] || '')).filter(Boolean));
+  _missyRaw = missyRaw; _missy26Raw = missy26Raw; _tyshekaRaw = tyshekaRaw;
+  _p2aRaw = p2aRaw; _parentActionsRaw = parentActionsRaw;
   // All 11s sheets have staffer name in col 0, First Name in col 1, Last Name in col 2
   // None have reliable headers so we always read by column position, skip row 0 (header)
   function namesFromRaw(raw) {
@@ -226,22 +310,76 @@ async function loadData() {
     ...namesFromRaw(tyshekaRaw),
     ...namesFromRaw(missy26Raw),
   ]);
-  const epicSet = new Set([
-    ...rowsToObjs(epic26Raw).map(r => nameKey(r['Name (First)'] || '', r['Name (Last)'] || '')),
-    ...rowsToObjs(epic25Raw).map(r => nameKey(r['First Name'] || '', r['Last Name'] || '')),
-  ].filter(Boolean));
+  // EPIC data: pull exclusively from 'All EPIC graduates' sheet
+  // Detect header row: if first row contains 'First Name', use header-based lookup
+  // otherwise use column positions (col 0 = first name, col 1 = last name)
+  // Build epicSet from 'All EPIC graduates' sheet
+  // Headers are: First Name, Last Name
+  const epicRaw = epicAllRaw || [];
+  const epicNames = [];
+  if (epicRaw.length > 1) {
+    const hdr = (epicRaw[0] || []).map(h => (h||'').toString().toLowerCase().trim());
+    const fnIdx = hdr.findIndex(h => h === 'first name' || h.includes('first'));
+    const lnIdx = hdr.findIndex(h => h === 'last name' || h.includes('last'));
+    epicRaw.slice(1).forEach(r => {
+      const fn = (r[fnIdx > -1 ? fnIdx : 0] || '').toString().trim();
+      const ln = (r[lnIdx > -1 ? lnIdx : 1] || '').toString().trim();
+      if (fn && ln && fn !== 'nan') {
+        // Add multiple name format variations to maximize matches
+        epicNames.push(nameKey(fn, ln));                          // "First Last"
+        epicNames.push(nameKey(fn.split(' ')[0], ln));            // "F Last" (strip middle)
+        epicNames.push(nameKey(fn, ln.split(' ')[0]));            // "First L" (strip suffix)
+        epicNames.push(nameKey(fn.split(' ')[0], ln.split(' ')[0])); // "F L" (both stripped)
+      }
+    });
+  }
+  _epicSet = new Set(epicNames.filter(n => n && n.length > 2));
+  const epicSet = _epicSet;
+  // Count actions per person from Parent Action Data (no header row, col 0 = first, col 1 = last)
+  const actionCounts = {};
+  (parentActionsRaw || []).forEach(r => {
+    const fn = (r[0] || '').toString().trim();
+    const ln = (r[1] || '').toString().trim();
+    if (!fn || !ln || fn === 'nan' || ln === 'nan') return;
+    const key = nameKey(fn, ln);
+    // Also try first-word-only keys to catch middle name variations
+    const shortKey = nameKey(fn.split(' ')[0], ln);
+    actionCounts[key] = (actionCounts[key] || actionCounts[shortKey] || { name: `${fn} ${ln}`, count: 0 });
+    if (actionCounts[shortKey] && actionCounts[shortKey] !== actionCounts[key]) {
+      actionCounts[key].count += actionCounts[shortKey].count;
+      delete actionCounts[shortKey];
+    }
+    actionCounts[key].count++;
+  });
 
-  allVolunteers = rowsToObjs(masterRaw).map(r => {
+  // Build P2A lookup for memberships and lifetime data (has header row)
+  const p2aLookup = {};
+  const p2aObjs = rowsToObjs(p2aRaw || []);
+  p2aObjs.forEach(r => {
     const fn = (r['First Name'] || '').trim();
     const ln = (r['Last Name'] || '').trim();
-    const full = (r['Full Name '] || r['Full Name'] || `${fn} ${ln}`).trim();
-    const actions = parseFloat(r['# of Actions Taken in 2025-2026']) || 0;
-    const lifetime = parseFloat(r['Total # of Actions Overtime']) || 0;
-    const memberships = parseFloat(r['Total Memberships p2A']) || 0;
+    if (!fn || !ln) return;
     const key = nameKey(fn, ln);
-    return { name: full, actions, lifetime, memberships,
+    p2aLookup[key] = {
+      memberships: parseFloat(r['Total Memberships']) || 0,
+      connections: parseFloat(r['Total Connections']) || 0,
+    };
+  });
+
+  allVolunteers = Object.entries(actionCounts).map(([key, v]) => {
+    const p2a = p2aLookup[key] || {};
+    const [fn, ...rest] = v.name.split(' ');
+    const ln = rest.join(' ');
+    return {
+      name: v.name,
+      key: key,
+      actions: v.count,
+      lifetime: p2a.memberships || v.count,
+      memberships: p2a.memberships || 0,
       cap26: cap26Set.has(key), cap25: cap25Set.has(key),
-      oo: ooSet.has(key), epic: epicSet.has(key) };
+      oo: ooSet.has(key),
+      epic: _epicSet.has(key) || _epicSet.has(nameKey(v.name.split(' ')[0], v.name.split(' ').slice(1).join(' '))) || _epicSet.has(nameKey(v.name.split(' ')[0], v.name.split(' ').pop()))
+    };
   }).filter(v => v.name && v.name.length > 1)
     .sort((a, b) => b.actions - a.actions);
 
@@ -259,29 +397,62 @@ async function loadData() {
     }
   });
 
-  // Parse emails & calls to lawmakers using raw row positions (col 1 = event, col 2 = count)
-  // The sheet has a header row so data starts at index 1
-  // Total emails grand total is stored in row 1, col 4
-  // Phone calls rows have 'phone' in the event name (col 1)
+  // Count emails to lawmakers directly from Emails sent to elected officials sheet
+  // Each row = one email sent; has header row so skip row 0
   let totalEmails = 0, totalCalls = 0;
-  const emailDataRows = emailsRaw.length > 1 ? emailsRaw.slice(1) : emailsRaw;
-  emailDataRows.forEach(r => {
-    const eventName = (r[1] || '').toString().toLowerCase();
-    const count = parseInt(r[2]) || 0;
-    if (!eventName || count === 0) return;
-    if (eventName.includes('phone') || eventName.includes('call')) {
-      totalCalls += count;
-    } else {
-      totalEmails += count;
-    }
-  });
-  // Fallback to grand total stored in col 4 of first data row if sum is 0
-  if (totalEmails === 0 && emailsRaw.length > 1) {
-    const grandTotal = parseInt(emailsRaw[1][4]) || 0;
-    if (grandTotal > 0) totalEmails = grandTotal - totalCalls;
+  const emailRows = (electedEmailsRaw || []);
+  totalEmails = emailRows.length > 1 ? emailRows.length - 1 : emailRows.length;
+  // Calls to lawmakers: each row = 1 call, check if first row is header or data
+  const callRows = (advocateCallsRaw || []);
+  if (callRows.length > 0) {
+    const firstCell = (callRows[0][0] || '').toString().toLowerCase();
+    // If first row looks like a header (contains words like 'name','date','advocate'), subtract 1
+    const isHeader = firstCell.includes('name') || firstCell.includes('date') || 
+                     firstCell.includes('advocate') || firstCell.includes('caller') ||
+                     (isNaN(firstCell) && firstCell.length > 0);
+    totalCalls = isHeader ? Math.max(0, callRows.length - 1) : callRows.length;
   }
 
-  renderDashboard(monthly, totalEmails, totalCalls);
+  // Total volunteers = unique rows in P2A Data (most complete list)
+  // P2A has a header row so subtract 1
+  const totalVolunteers = (p2aRaw||[]).length > 1 ? (p2aRaw||[]).length - 1 : (p2aRaw||[]).length;
+
+  // Total actions = sum col 3 (# of Actions Taken in 2025-2026) from Master Parent Action List
+  const totalActions2526 = (masterRaw||[]).slice(1).reduce((s, r) => {
+    const v = parseFloat(r[3]) || 0;
+    return s + v;
+  }, 0);
+
+  // Count 2025 and 2026 actions from Parent Action Data using event name in col 19
+  // Sheet has no header row so all rows are data; col 19 = event name
+  let actions2025 = 0, actions2026 = 0;
+  (parentActionsRaw||[]).forEach(r => {
+    const event = (r[19] || '').toString();
+    if (event.includes('2025')) actions2025++;
+    else if (event.includes('2026')) actions2026++;
+  });
+
+  // Count emails per lawmaker from elected officials sheet
+  // Has header row: find recipient_title and recipient_name column indices
+  const electedRows = (electedEmailsRaw || []);
+  let titleIdx = 0, nameIdx = 1;
+  if (electedRows.length > 0) {
+    const hdr = electedRows[0].map(h => (h||'').toString().toLowerCase());
+    titleIdx = hdr.findIndex(h => h.includes('recipient_title') || h.includes('title'));
+    nameIdx = hdr.findIndex(h => h.includes('recipient_name') || h.includes('name'));
+    if (titleIdx < 0) titleIdx = 0;
+    if (nameIdx < 0) nameIdx = 1;
+  }
+  const lawmakerCounts = {};
+  electedRows.slice(1).forEach(r => {
+    const name = (r[nameIdx] || '').toString().trim();
+    if (!name) return;
+    lawmakerCounts[name] = (lawmakerCounts[name] || 0) + 1;
+  });
+  const lawmakerData = Object.entries(lawmakerCounts)
+    .sort((a, b) => b[1] - a[1]);
+
+  renderDashboard(monthly, totalEmails, totalCalls, totalVolunteers, totalActions2526, actions2025, actions2026, lawmakerData);
   setStatus('live', 'Live — updated ' + new Date().toLocaleTimeString());
   
   btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16"><path d="M13.65 2.35A8 8 0 1 0 15 8h-2a6 6 0 1 1-1.05-3.35L9 7h6V1l-1.35 1.35z" fill="currentColor"/></svg> Refresh';
@@ -295,7 +466,7 @@ function setStatus(state, msg) {
   document.getElementById('lastUpd').textContent = msg;
 }
 
-function renderDashboard(monthly, totalEmails=664, totalCalls=345) {
+function renderDashboard(monthly, totalEmails=664, totalCalls=345, totalVolunteers=0, totalActions2526=0, actions2025=0, actions2026=0, lawmakerData=[]) {
   const total = allVolunteers.length;
   const champions = allVolunteers.filter(v => v.tier === 'Champion').length;
   const highYield = allVolunteers.filter(v => v.tier === 'High Yield').length;
@@ -307,15 +478,28 @@ function renderDashboard(monthly, totalEmails=664, totalCalls=345) {
 
   const kpiEl = document.getElementById('kpiGrid');
   kpiEl.classList.remove('hidden');
+  // 2026 Missy 11s has no header row - all rows are data entries
+  const missy26Count = (_missy26Raw || []).length;
+  const tyshekaCount = (_tyshekaRaw || []).length > 1 ? (_tyshekaRaw || []).length - 1 : 0;
+
   kpiEl.innerHTML = [
-    { l: 'Total volunteers', v: total.toLocaleString(), c: '' },
+    { l: 'Total volunteers', v: (totalVolunteers || total).toLocaleString(), c: '' },
+    { l: 'Total actions over time', v: (totalActions2526 || totalAct).toLocaleString(), c: 'teal' },
+    { l: 'Actions taken in 2025', v: actions2025.toLocaleString(), c: 'green' },
+    { l: 'Actions taken in 2026', v: actions2026.toLocaleString(), c: 'blue' },
     { l: 'Champions (20+)', v: champions, c: 'gold' },
     { l: 'High yield (10–19)', v: highYield, c: '' },
     { l: 'Active (5–9)', v: active, c: 'green' },
-    { l: 'Total actions', v: totalAct.toLocaleString(), c: 'teal' },
+
     { l: 'Capitol day 2026', v: cap26c, c: '' },
+    { l: 'EPIC graduates', v: _epicSet.size.toLocaleString(), c: 'green' },
+    { l: 'High-yield EPIC grads', v: allVolunteers.filter(v => v.epic && v.tier === 'High Yield').length.toLocaleString(), c: 'gold' },
+    { l: 'Active EPIC grads', v: allVolunteers.filter(v => v.epic && v.tier === 'Active').length.toLocaleString(), c: 'green' },
+    { l: 'Emerging EPIC grads', v: allVolunteers.filter(v => v.epic && v.tier === 'Emerging').length.toLocaleString(), c: 'teal' },
     { l: 'Emails to lawmakers', v: totalEmails.toLocaleString(), c: '' },
     { l: 'Calls to lawmakers', v: totalCalls.toLocaleString(), c: 'green' },
+    { l: "Missy's 1:1s (2026)", v: missy26Count.toLocaleString(), c: 'teal' },
+    { l: "Ty'Sheka's 1:1s", v: tyshekaCount.toLocaleString(), c: 'gold' },
   ].map(k => `<div class="kpi"><div class="kpi-label">${k.l}</div><div class="kpi-val ${k.c}">${k.v}</div></div>`).join('');
 
   const tierCounts = { Champion: champions, 'High Yield': highYield, Active: active, Emerging: emerging, Inactive: inactive };
@@ -341,7 +525,10 @@ function renderDashboard(monthly, totalEmails=664, totalCalls=345) {
   document.getElementById('twoCol').classList.remove('hidden');
   document.getElementById('fullCard').classList.remove('hidden');
   document.getElementById('emergingCard').classList.remove('hidden');
+  document.getElementById('activeCard').classList.remove('hidden');
+  document.getElementById('countyCard').classList.remove('hidden');
   document.getElementById('chartCard').classList.remove('hidden');
+  document.getElementById('lawmakerCard').classList.remove('hidden');
 
   filtered = allVolunteers.filter(v => v.actions >= 10);
   currentPage = 1;
@@ -351,7 +538,77 @@ function renderDashboard(monthly, totalEmails=664, totalCalls=345) {
   emergingPage = 1;
   renderEmergingTable();
 
+  activeFiltered = allVolunteers.filter(v => v.tier === 'Active');
+  activePage = 1;
+  renderActiveTable();
+
+  // Build county advocate counts from P2A (col 11 = County, col 4 = Full Name)
+  // Deduplicate by full name across both sheets
+  const advocateCountyMap = {}; // fullName -> county
+  const p2aRows = rowsToObjs(_p2aRaw || []);
+  p2aRows.forEach(r => {
+    const name = (r['First & Lase Name '] || `${r['First Name']} ${r['Last Name']}`).trim();
+    const county = (r['County'] || '').toString().trim().replace(/\w/g, c => c.toUpperCase());
+    if (name && county && county !== 'Nan') advocateCountyMap[name] = county;
+  });
+  // PAD now has county in column I (index 8), col 0 = first name, col 1 = last name
+  (_parentActionsRaw || []).forEach(r => {
+    const fn = (r[0] || '').toString().trim();
+    const ln = (r[1] || '').toString().trim();
+    const county = (r[8] || '').toString().trim();
+    if (!fn || !ln || fn === 'nan') return;
+    const full = `${fn} ${ln}`;
+    // Use PAD county if available, don't overwrite existing P2A county
+    if (county && county !== 'nan' && county !== '') {
+      if (!advocateCountyMap[full]) advocateCountyMap[full] = county;
+    } else if (!advocateCountyMap[full]) {
+      advocateCountyMap[full] = 'Unknown';
+    }
+  });
+
+  const countyCounts = {};
+  Object.values(advocateCountyMap).forEach(county => {
+    if (county && county !== 'Unknown') {
+      countyCounts[county] = (countyCounts[county] || 0) + 1;
+    }
+  });
+  countyData = Object.entries(countyCounts).sort((a, b) => b[1] - a[1]);
+  countyFiltered = [...countyData];
+  countyPage = 1;
+  renderCountyTable();
+
   const sortedMonths = Object.keys(monthly).sort((a, b) => new Date(a) - new Date(b));
+  // Lawmaker bar chart
+  const wrap = document.getElementById('lawmakerChartWrap');
+  if (lawmakerData.length > 0) {
+    wrap.innerHTML = '';
+    const h = Math.max(300, lawmakerData.length * 32 + 60);
+    wrap.style.height = h + 'px';
+    const canvas = document.createElement('canvas');
+    canvas.id = 'lawmakerChart';
+    wrap.appendChild(canvas);
+    if (window._lawmakerChart) window._lawmakerChart.destroy();
+    window._lawmakerChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: lawmakerData.map(d => d[0]),
+        datasets: [{ label: 'Emails sent', data: lawmakerData.map(d => d[1]),
+          backgroundColor: '#B5D4F4', borderColor: '#185FA5', borderWidth: 1, borderRadius: 4 }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
+          y: { ticks: { font: { size: 11 } }, grid: { display: false } }
+        }
+      }
+    });
+  } else {
+    wrap.innerHTML = '<p style="font-size:13px;color:var(--color-text-secondary);padding:1rem 0">No data yet — add rows to the "Emails sent to elected officials" sheet.</p>';
+  }
+
   if (chartInst) { chartInst.destroy(); }
   chartInst = new Chart(document.getElementById('monthlyChart'), {
     type: 'bar',
@@ -430,6 +687,64 @@ function changeEmergingPage(dir) {
   const pages = Math.ceil(emergingFiltered.length / EMERGING_PAGE_SIZE);
   emergingPage = Math.max(1, Math.min(pages, emergingPage + dir));
   renderEmergingTable();
+}
+
+function filterActive() {
+  const q = document.getElementById('activeSearch').value.toLowerCase();
+  activeFiltered = allVolunteers.filter(v => v.tier === 'Active' && (!q || v.name.toLowerCase().includes(q)));
+  activePage = 1;
+  renderActiveTable();
+}
+
+function renderActiveTable() {
+  const start = (activePage - 1) * ACTIVE_PAGE_SIZE;
+  const page = activeFiltered.slice(start, start + ACTIVE_PAGE_SIZE);
+  document.getElementById('activeBody').innerHTML = page.map((v, i) => `<tr>
+    <td style="color:#aaa;font-size:13px">${start + i + 1}</td>
+    <td style="font-weight:600;font-size:13px">${v.name}</td>
+    <td style="font-size:15px;font-weight:700;color:#185FA5">${v.actions}</td>
+    <td style="color:#888;font-size:12px">${v.lifetime}</td>
+    <td><span class="badge b-a">Active</span></td>
+    <td>${dot(v.cap26)}</td><td>${dot(v.cap25)}</td>
+    <td>${dot(v.oo)}</td><td>${dot(v.epic)}</td>
+  </tr>`).join('');
+  const pages = Math.ceil(activeFiltered.length / ACTIVE_PAGE_SIZE);
+  document.getElementById('activePageInfo').textContent = `${start + 1}–${Math.min(start + ACTIVE_PAGE_SIZE, activeFiltered.length)} of ${activeFiltered.length}`;
+  document.getElementById('activePrevBtn').disabled = activePage <= 1;
+  document.getElementById('activeNextBtn').disabled = activePage >= pages;
+}
+
+function changeActivePage(dir) {
+  const pages = Math.ceil(activeFiltered.length / ACTIVE_PAGE_SIZE);
+  activePage = Math.max(1, Math.min(pages, activePage + dir));
+  renderActiveTable();
+}
+
+function filterCounty() {
+  const q = document.getElementById('countySearch').value.toLowerCase();
+  countyFiltered = countyData.filter(([county]) => !q || county.toLowerCase().includes(q));
+  countyPage = 1;
+  renderCountyTable();
+}
+
+function renderCountyTable() {
+  const start = (countyPage - 1) * COUNTY_PAGE_SIZE;
+  const page = countyFiltered.slice(start, start + COUNTY_PAGE_SIZE);
+  document.getElementById('countyBody').innerHTML = page.map(([county, count], i) => `<tr>
+    <td style="color:#aaa;font-size:13px">${start + i + 1}</td>
+    <td style="font-weight:600;font-size:13px">${county}</td>
+    <td style="font-size:15px;font-weight:700;color:#185FA5">${count.toLocaleString()}</td>
+  </tr>`).join('');
+  const pages = Math.ceil(countyFiltered.length / COUNTY_PAGE_SIZE);
+  document.getElementById('countyPageInfo').textContent = `${start + 1}–${Math.min(start + COUNTY_PAGE_SIZE, countyFiltered.length)} of ${countyFiltered.length} counties`;
+  document.getElementById('countyPrevBtn').disabled = countyPage <= 1;
+  document.getElementById('countyNextBtn').disabled = countyPage >= pages;
+}
+
+function changeCountyPage(dir) {
+  const pages = Math.ceil(countyFiltered.length / COUNTY_PAGE_SIZE);
+  countyPage = Math.max(1, Math.min(pages, countyPage + dir));
+  renderCountyTable();
 }
 
 // Auto-load on page open
