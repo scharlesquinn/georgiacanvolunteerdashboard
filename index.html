@@ -110,7 +110,7 @@
     </div>
     <table class="vol-table">
       <thead><tr>
-        <th>#</th><th>Name</th><th>2025-26</th><th>Lifetime</th><th>Tier</th>
+        <th>#</th><th>Name</th><th>Actions</th><th>Total Memberships (P2A)</th><th>Tier</th>
         <th title="Capitol Day 2026">C'26</th>
         <th title="Capitol Day 2025">C'25</th>
         <th title="1:1 Meeting">1:1</th>
@@ -132,7 +132,7 @@
     </div>
     <table class="vol-table">
       <thead><tr>
-        <th>#</th><th>Name</th><th>2025-26 Actions</th><th>Lifetime Actions</th><th>C'26</th><th>C'25</th><th>1:1</th><th>EPIC</th>
+        <th>#</th><th>Name</th><th>Actions</th><th>Total Memberships (P2A)</th><th>C'26</th><th>C'25</th><th>1:1</th><th>EPIC</th>
       </tr></thead>
       <tbody id="emergingBody"></tbody>
     </table>
@@ -150,7 +150,7 @@
     </div>
     <table class="vol-table">
       <thead><tr>
-        <th>#</th><th>Name</th><th>2025-26</th><th>Lifetime</th><th>Tier</th>
+        <th>#</th><th>Name</th><th>Actions</th><th>Total Memberships (P2A)</th><th>Tier</th>
         <th title="Capitol Day 2026">C'26</th>
         <th title="Capitol Day 2025">C'25</th>
         <th title="1:1 Meeting">1:1</th>
@@ -374,7 +374,7 @@ async function loadData() {
       name: v.name,
       key: key,
       actions: v.count,
-      lifetime: p2a.memberships || v.count,
+      lifetime: (v.count || 0) + (p2a.memberships || 0),
       memberships: p2a.memberships || 0,
       cap26: cap26Set.has(key), cap25: cap25Set.has(key),
       oo: ooSet.has(key),
@@ -417,19 +417,26 @@ async function loadData() {
   // P2A has a header row so subtract 1
   const totalVolunteers = (p2aRaw||[]).length > 1 ? (p2aRaw||[]).length - 1 : (p2aRaw||[]).length;
 
-  // Total actions = sum col 3 (# of Actions Taken in 2025-2026) from Master Parent Action List
-  const totalActions2526 = (masterRaw||[]).slice(1).reduce((s, r) => {
-    const v = parseFloat(r[3]) || 0;
+  // Total actions over time = PAD row count + P2A Total Memberships (col V, index 21)
+  const padRowCount = Math.max(0, (parentActionsRaw||[]).length);
+  // Find Total Memberships column index in P2A (header row)
+  const p2aHdr = ((p2aRaw||[])[0] || []).map(h => (h||'').toString().toLowerCase().trim());
+  const totalMembershipsIdx = p2aHdr.findIndex(h => h === 'total memberships');
+  const p2aMembershipsTotal = (p2aRaw||[]).slice(1).reduce((s, r) => {
+    const v = parseFloat(r[totalMembershipsIdx > -1 ? totalMembershipsIdx : 21]) || 0;
     return s + v;
   }, 0);
+  const totalActions2526 = padRowCount + p2aMembershipsTotal;
 
-  // Count 2025 and 2026 actions from Parent Action Data using event name in col 19
-  // Sheet has no header row so all rows are data; col 19 = event name
+  // Count 2025 and 2026 actions using date in col P (index 15) of Parent Action Data
   let actions2025 = 0, actions2026 = 0;
   (parentActionsRaw||[]).forEach(r => {
-    const event = (r[19] || '').toString();
-    if (event.includes('2025')) actions2025++;
-    else if (event.includes('2026')) actions2026++;
+    const dateStr = (r[15] || '').toString().trim();
+    if (!dateStr || dateStr === 'nan') return;
+    const d = new Date(dateStr);
+    if (isNaN(d.getFullYear())) return;
+    if (d.getFullYear() === 2025) actions2025++;
+    else if (d.getFullYear() === 2026) actions2026++;
   });
 
   // Count emails per lawmaker from elected officials sheet
