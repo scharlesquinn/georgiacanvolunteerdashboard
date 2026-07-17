@@ -1,0 +1,1635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeorgiaCAN — Live Volunteer Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --orange:#F37021;
+    --orange-dark:#D85C0F;
+    --orange-tint:#FFF1E4;
+    --navy:#142B4D;
+    --navy-soft:#5B6B84;
+    --bg:#FFFFFF;
+    --bg-soft:#F6F8FB;
+    --line:#E7EAF1;
+    --shadow:0 10px 28px rgba(20,43,77,0.08);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family:'Inter', sans-serif;
+    background: var(--bg-soft);
+    color: var(--navy);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Top brand bar, echoes gacan.org's nav strip */
+  .brandbar { background: var(--navy); padding: 14px 28px; display: flex; align-items: center; gap: 10px; }
+  .brandbar .wordmark {
+    font-family:'Poppins', sans-serif; font-weight: 800; font-size: 16px; color: #fff;
+    letter-spacing: .01em; max-width: 1180px; margin: 0 auto; width: 100%;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .brandbar .bdot { width: 9px; height: 9px; border-radius: 50%; background: var(--orange); display: inline-block; }
+
+  .container { max-width: 1180px; margin: 0 auto; padding: 0 28px 90px; }
+
+  /* Header */
+  header.topbar {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    padding: 44px 0 26px; gap: 24px; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-family:'Inter', sans-serif; font-weight: 700; font-size: 12.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--orange); margin: 0 0 10px;
+  }
+  header.topbar h1 {
+    font-family:'Poppins', sans-serif; font-weight: 800; font-size: clamp(28px,4.5vw,44px);
+    margin: 0; line-height: 1.05; letter-spacing: -0.01em; color: var(--navy);
+  }
+  .subhead {
+    font-family:'Inter', sans-serif; font-size: 15px; color: var(--navy-soft);
+    margin: 0 0 28px; max-width: 680px; line-height: 1.65;
+  }
+  .stamp {
+    display: flex; align-items: center; gap: 10px;
+    font-family:'Inter', sans-serif; font-weight: 600; font-size: 12.5px; text-align: right;
+    color: var(--orange-dark); background: var(--orange-tint); border-radius: 999px;
+    padding: 9px 18px; white-space: nowrap;
+  }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #C9CFDB; flex-shrink: 0; }
+  .status-dot.live { background: #2E8B57; }
+  .status-dot.error { background: var(--orange-dark); }
+  .last-upd { font-size: 12.5px; color: var(--orange-dark); }
+  .refresh-btn {
+    font-family:'Inter', sans-serif; font-weight: 600; font-size: 12px; padding: 6px 12px; border-radius: 999px;
+    border: none; background: var(--navy); cursor: pointer;
+    display: flex; align-items: center; gap: 6px; color: #fff;
+  }
+  .refresh-btn:hover { background: #0C1E38; }
+  .header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+  .btn-log11 {
+    font-family:'Inter', sans-serif; font-weight: 600; font-size: 13.5px; padding: 11px 20px;
+    border: none; border-radius: 999px; background: var(--orange); color: #fff; cursor: pointer;
+    letter-spacing: .01em; box-shadow: 0 6px 16px rgba(243,112,33,0.28); transition: background .15s ease;
+    white-space: nowrap;
+  }
+  .btn-log11:hover { background: var(--orange-dark); }
+
+  /* Section titles */
+  .sec-title {
+    font-family:'Poppins', sans-serif; font-weight: 700; font-size: 14px; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--navy); display: flex; align-items: center; gap: 10px;
+    margin: 40px 0 18px;
+  }
+  .sec-title::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); flex-shrink: 0; }
+  .sec-title::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .sec-title:first-of-type { margin-top: 0; }
+
+  /* Setup card */
+  .setup-card { background: #fff; border-radius: 16px; box-shadow: var(--shadow); padding: 1.5rem; margin-bottom: 1.5rem; }
+  .setup-card h2 {
+    font-family:'Poppins', sans-serif; font-size: 13px; font-weight: 700; color: var(--navy);
+    text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px;
+  }
+  .setup-desc { font-size: 13px; color: var(--navy-soft); margin-bottom: 14px; line-height: 1.6; }
+  .input-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .input-row input {
+    flex: 1; min-width: 220px; font-family:'Inter', sans-serif; font-size: 13px;
+    padding: 9px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: #fff; color: var(--navy);
+  }
+  .input-row input:focus { outline: none; border-color: var(--orange); }
+  .btn-primary {
+    font-family:'Inter', sans-serif; font-weight: 600; font-size: 13.5px; padding: 10px 20px; border-radius: 999px;
+    border: none; background: var(--orange); color: #fff; cursor: pointer;
+    letter-spacing: .01em; box-shadow: 0 6px 16px rgba(243,112,33,0.28); white-space: nowrap;
+  }
+  .btn-primary:hover { background: var(--orange-dark); }
+  .err-msg { font-size: 12.5px; color: var(--orange-dark); margin-top: 8px; font-family:'Inter', sans-serif; }
+
+  /* Stat strip (KPIs) */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 1.5rem; }
+  .kpi { background: #fff; padding: 20px 20px; border-radius: 16px; box-shadow: var(--shadow); border-top: 3px solid var(--orange); }
+  .kpi-label {
+    font-family:'Inter', sans-serif; font-size: 11.5px; font-weight: 600; color: var(--navy-soft);
+    margin-bottom: 9px; text-transform: uppercase; letter-spacing: .05em;
+  }
+  .kpi-val { font-family:'Poppins', sans-serif; font-size: 30px; font-weight: 800; color: var(--navy); line-height: 1; }
+  .kpi-val.gold { color: var(--orange-dark); }
+  .kpi-val.green { color: #2E8B57; }
+  .kpi-val.teal { color: var(--orange); }
+  .kpi-val.blue { color: var(--navy-soft); }
+
+  .two-col { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-bottom: 1.5rem; }
+  @media(max-width: 760px) { .two-col { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+  .card { background: #fff; border-radius: 16px; box-shadow: var(--shadow); padding: 22px 24px 18px; }
+  .card h2 {
+    font-family:'Poppins', sans-serif; font-size: 16.5px; font-weight: 700; color: var(--navy);
+    margin-bottom: 16px;
+  }
+  .tier-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .tier-label { font-family:'Inter', sans-serif; font-weight: 600; font-size: 12px; width: 130px; flex-shrink: 0; color: var(--navy); }
+  .tier-bar-wrap { flex: 1; background: var(--bg-soft); border-radius: 6px; height: 12px; overflow: hidden; }
+  .tier-bar { height: 12px; border-radius: 6px; transition: width .5s ease; }
+  .tier-count { font-family:'Inter', sans-serif; font-weight: 600; font-size: 12px; color: var(--navy-soft); width: 44px; text-align: right; }
+
+  .vol-table { width: 100%; border-collapse: collapse; font-family:'Inter', sans-serif; font-size: 13px; }
+  .vol-table th {
+    font-family:'Inter', sans-serif; font-size: 11px; font-weight: 700; color: var(--navy-soft);
+    text-align: left; padding: 12px 10px; background: var(--bg-soft); text-transform: uppercase; letter-spacing: .04em;
+    white-space: nowrap;
+  }
+  .vol-table td { padding: 11px 10px; border-top: 1px solid var(--line); vertical-align: middle; color: var(--navy); }
+  .vol-table tr:hover td { background: var(--bg-soft); }
+  .badge {
+    display: inline-block; font-family:'Inter', sans-serif; font-size: 10.5px; padding: 3px 10px;
+    border-radius: 999px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+  }
+  .b-c { background: var(--orange-tint); color: var(--orange-dark); }
+  .b-h { background: var(--navy); color: #fff; }
+  .b-a { background: var(--bg-soft); color: var(--navy-soft); }
+  .dot { display: inline-block; font-weight: 700; }
+  .dot-y { color: var(--orange-dark); }
+  .dot-y::before { content: "✓"; }
+  .dot-n { color: var(--line); }
+  .dot-n::before { content: "—"; }
+
+  .search-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .search-row input, .search-row select {
+    font-family:'Inter', sans-serif; font-size: 13px; padding: 9px 12px; border-radius: 10px;
+    border: 1.5px solid var(--line); background: #fff; color: var(--navy);
+  }
+  .search-row input { flex: 1; min-width: 160px; }
+  .search-row input:focus, .search-row select:focus { outline: none; border-color: var(--orange); }
+  .pager { display: flex; gap: 12px; align-items: center; justify-content: flex-end; font-family:'Inter', sans-serif; font-size: 12px; color: var(--navy-soft); margin-top: 12px; }
+  .pager button {
+    padding: 7px 14px; font-family:'Inter', sans-serif; font-weight: 600; font-size: 12.5px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: #fff; color: var(--navy); cursor: pointer;
+  }
+  .pager button:hover:not(:disabled) { border-color: var(--orange); color: var(--orange-dark); }
+  .pager button:disabled { opacity: .4; cursor: default; }
+  .spin { display: inline-block; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
+
+  /* Modal (Log a 1:1) */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(20,43,77,0.55); z-index: 100;
+    display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px; overflow-y: auto;
+  }
+  .modal-box {
+    background: #fff; border-radius: 18px; box-shadow: 0 20px 60px rgba(20,43,77,0.35); max-width: 680px; width: 100%;
+    max-height: 88vh; overflow-y: auto; padding: 28px 28px 24px; position: relative;
+  }
+  .modal-box h2 {
+    font-family:'Poppins', sans-serif; font-size: 23px; font-weight: 700; margin-bottom: 4px; color: var(--navy);
+  }
+  .modal-cap { font-family:'Inter', sans-serif; font-size: 12.5px; color: var(--navy-soft); margin-bottom: 18px; line-height: 1.5; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .form-grid.full { grid-template-columns: 1fr; }
+  .field label {
+    display: block; font-family:'Inter', sans-serif; font-weight: 600; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--navy-soft); margin-bottom: 6px;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%; font-family:'Inter', sans-serif; font-size: 13.5px; padding: 9px 12px;
+    border-radius: 10px; border: 1.5px solid var(--line); background: #fff; color: var(--navy);
+  }
+  .field textarea { min-height: 60px; resize: vertical; font-family:'Inter', sans-serif; }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--orange); }
+  .field-check { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .field-check label { font-family:'Inter', sans-serif; font-size: 12px; color: var(--navy); }
+
+  /* Checkbox pill groups (I'm a... / children attend... / choice programs...) */
+  .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chk-pill {
+    display: flex; align-items: center; gap: 7px; font-family:'Inter', sans-serif; font-weight: 500; font-size: 12.5px;
+    padding: 7px 12px 7px 10px; border: 1.5px solid var(--line); border-radius: 999px; background: #fff;
+    color: var(--navy); cursor: pointer; user-select: none; transition: border-color .12s ease, background .12s ease, color .12s ease;
+  }
+  .chk-pill input { accent-color: var(--orange); width: 14px; height: 14px; margin: 0; flex-shrink: 0; }
+  .chk-pill.checked { border-color: var(--orange); background: var(--orange-tint); color: var(--orange-dark); }
+  .field-hint { font-family:'Inter', sans-serif; font-size: 11.5px; color: var(--navy-soft); margin: -2px 0 10px; }
+
+  /* Engagement grid */
+  .engagement-grid-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+  table.engagement-grid { width: 100%; border-collapse: collapse; font-family:'Inter', sans-serif; font-size: 11.5px; min-width: 600px; }
+  table.engagement-grid th {
+    background: var(--bg-soft); color: var(--navy-soft); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .02em; padding: 9px 6px; text-align: center; font-size: 9.5px; line-height: 1.3; vertical-align: bottom;
+  }
+  table.engagement-grid th:first-child { text-align: left; padding-left: 10px; }
+  table.engagement-grid td { padding: 9px 6px; border-top: 1px solid var(--line); text-align: center; }
+  table.engagement-grid td:first-child { text-align: left; padding-left: 10px; font-weight: 600; color: var(--navy); white-space: nowrap; }
+  table.engagement-grid tr:hover td { background: var(--bg-soft); }
+  table.engagement-grid input[type=radio] { accent-color: var(--orange); width: 15px; height: 15px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+  .btn-secondary {
+    font-family:'Inter', sans-serif; font-weight: 600; font-size: 13.5px; padding: 10px 18px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: #fff; color: var(--navy); cursor: pointer;
+  }
+  .btn-secondary:hover { border-color: var(--orange); color: var(--orange-dark); }
+
+  /* Pending 1:1s card */
+  .pending-row {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 14px 0; border-top: 1px dashed var(--line);
+  }
+  .pending-row:first-child { border-top: none; padding-top: 4px; }
+  .pending-name { font-family:'Poppins', sans-serif; font-weight: 700; font-size: 14.5px; color: var(--navy); }
+  .pending-meta { font-family:'Inter', sans-serif; font-weight: 600; font-size: 10.5px; color: var(--navy-soft); text-transform: uppercase; letter-spacing: .04em; margin-top: 3px; }
+  .pending-interest { font-size: 12.5px; color: #2B3B54; margin-top: 5px; }
+  .pending-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .pending-actions button {
+    font-family:'Inter', sans-serif; font-weight: 600; font-size: 10.5px; padding: 6px 11px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: #fff; color: var(--navy); cursor: pointer; white-space: nowrap;
+  }
+  .pending-actions button:hover { border-color: var(--orange); color: var(--orange-dark); }
+  .pending-actions button.copied { background: #2E8B57; border-color: #2E8B57; color: #fff; }
+  .empty-note { font-family:'Inter', sans-serif; font-size: 12.5px; color: var(--navy-soft); padding: 6px 0; }
+  .empty {
+    text-align: center; padding: 50px 20px; font-family:'Inter', sans-serif;
+    color: var(--navy-soft); font-size: 13.5px; background: #fff; border-radius: 16px; box-shadow: var(--shadow);
+  }
+
+  /* Controls bar (staff toggle + search) for the meeting log */
+  .controls {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px;
+    padding: 14px 16px; background: #fff; border-radius: 16px; box-shadow: var(--shadow);
+  }
+  .toggle-group { display: flex; background: var(--bg-soft); border-radius: 999px; padding: 4px; gap: 2px; }
+  .toggle-group button {
+    font-family:'Inter', sans-serif; font-weight: 600; font-size: 12.5px; padding: 8px 16px; background: transparent;
+    border: none; cursor: pointer; color: var(--navy-soft); border-radius: 999px;
+  }
+  .toggle-group button.active { background: var(--navy); color: #fff; }
+  .count-tag { margin-left: auto; font-family:'Inter', sans-serif; font-size: 12px; color: var(--navy-soft); }
+  .sheet-note {
+    font-family:'Inter', sans-serif; font-size: 12px; color: var(--navy-soft); line-height: 1.6;
+    background: var(--orange-tint); border-radius: 10px; padding: 12px 16px; margin: 0 0 16px; max-width: 820px;
+  }
+
+  /* Meeting log cards (pulled live from the Google Sheet) */
+  .meeting-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px,1fr)); gap: 14px; margin-bottom: 12px; }
+  .meeting-card {
+    background: #fff; border-radius: 14px; box-shadow: var(--shadow); border-top: 4px solid var(--navy);
+    padding: 15px 17px 16px; position: relative;
+  }
+  .meeting-card.missy { border-top-color: var(--orange); }
+  .meeting-badge {
+    position: absolute; top: 13px; right: 13px; width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family:'Poppins', sans-serif; font-weight: 700; font-size: 11px; color: #fff; background: var(--navy);
+  }
+  .meeting-card.missy .meeting-badge { background: var(--orange); }
+  .meeting-card .m-name { font-family:'Poppins', sans-serif; font-weight: 700; font-size: 15.5px; margin: 0 0 3px; padding-right: 26px; color: var(--navy); }
+  .meeting-card .m-meta { font-family:'Inter', sans-serif; font-size: 10.5px; font-weight: 600; color: var(--navy-soft); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 9px; }
+  .meeting-card .m-interest { font-size: 13px; line-height: 1.5; margin-bottom: 6px; color: #2B3B54; }
+  .meeting-card .m-notes { font-size: 11.5px; color: var(--navy-soft); font-style: italic; border-top: 1px dashed var(--line); padding-top: 7px; margin-top: 7px; }
+  .archive-flag {
+    display: inline-block; margin-top: 8px; font-family:'Inter', sans-serif; font-weight: 700; font-size: 9.5px;
+    text-transform: uppercase; letter-spacing: .05em; color: var(--navy-soft); background: var(--bg-soft);
+    padding: 3px 8px; border-radius: 999px;
+  }
+
+  @media(max-width: 620px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+
+
+<body>
+<div class="brandbar"><p class="wordmark"><span class="bdot"></span>GeorgiaCAN</p></div>
+<div class="container">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">GeorgiaCAN &middot; Outreach Data Hub</p>
+      <h1>Live Volunteer Dashboard</h1>
+    </div>
+    <div class="header-actions">
+      <div class="stamp">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="last-upd" id="lastUpd">Not connected</span>
+        <button class="refresh-btn hidden" id="refreshBtn" onclick="loadData()">
+          <svg width="13" height="13" viewBox="0 0 16 16"><path d="M13.65 2.35A8 8 0 1 0 15 8h-2a6 6 0 1 1-1.05-3.35L9 7h6V1l-1.35 1.35z" fill="currentColor"/></svg>
+          Refresh
+        </button>
+      </div>
+      <button class="btn-log11" onclick="openLogModal()">+ Log a 1:1</button>
+    </div>
+  </header>
+  <p class="subhead">Live snapshot of GeorgiaCAN's parent advocates, engagement tiers, and outreach — pulled directly from the outreach data hub.</p>
+
+  <div id="errMsg" class="err-msg" style="margin-bottom:8px"></div>
+
+  <div class="sec-title">Staff-Logged 1:1s</div>
+  <div id="pendingCard" class="card" style="margin-bottom:1.5rem">
+    <h2>Pending sync to Google Sheets</h2>
+    <p class="modal-cap" style="margin-bottom:14px">Meetings logged here live in this browser only. Copy each row into the <strong>2026 Ty'Sheka 1:1s</strong> or <strong>2026 Missy 1:1s</strong> tab, then clear it — this keeps the spreadsheet as the single source of truth.</p>
+    <div id="pendingList"><p class="empty-note">No 1:1s logged yet on this device. Use "+ Log a 1:1" above to add one.</p></div>
+  </div>
+
+  <div class="sec-title">1:1 Meeting Log</div>
+  <p class="sheet-note" id="meetingLogNote">Pulled live from the <strong>2026 Ty'Sheka 1:1s</strong> and <strong>2026 Missy 1:1s</strong> tabs (plus the Missy archive). Name is always read correctly; other details display when the sheet has matching column headers — if something looks off for a row, check that tab's headers.</p>
+  <div class="controls">
+    <div class="toggle-group" id="meetingStaffToggle">
+      <button data-staff="all" class="active">All</button>
+      <button data-staff="Ty'Sheka">Ty'Sheka</button>
+      <button data-staff="Missy">Missy</button>
+    </div>
+    <input type="text" id="meetingSearch" placeholder="Search name or topic…" style="flex:1;min-width:160px;font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;border-radius:10px;border:1.5px solid var(--line)">
+    <span class="count-tag" id="meetingCount"></span>
+  </div>
+  <div id="meetingCards" class="meeting-cards"></div>
+  <div class="empty" id="meetingEmptyState" style="display:none;margin-bottom:1.5rem">No 1:1s found for this filter.</div>
+  <div class="pager" id="meetingPager" style="margin-bottom:1.5rem"></div>
+
+  <div class="sec-title">Snapshot</div>
+  <div id="kpiGrid" class="kpi-grid hidden"></div>
+
+  <div id="twoCol" class="two-col hidden">
+    <div class="card">
+      <h2>Engagement tiers</h2>
+      <div id="tierBars"></div>
+    </div>
+    <div class="card">
+      <h2>Top volunteers</h2>
+      <table class="vol-table" id="top10Table"></table>
+    </div>
+  </div>
+
+  <div class="sec-title">Volunteer Rosters</div>
+  <div id="fullCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>High-yield volunteers (6+ actions)</h2>
+    <div class="search-row">
+      <input type="text" id="searchInput" placeholder="Search by name or county..." oninput="filterTable()">
+      <select id="tierFilter" onchange="filterTable()">
+        <option value="">All tiers</option>
+        <option value="Champion">Champion</option>
+        <option value="High Yield">High Yield</option>
+        <option value="Active">Active</option>
+      </select>
+    </div>
+    <table class="vol-table">
+      <thead><tr>
+        <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>County</th><th>Actions</th><th>Total Memberships (P2A)</th><th>Tier</th>
+        <th title="Capitol Day 2026">C'26</th>
+        <th title="Capitol Day 2025">C'25</th>
+        <th title="1:1 Meeting">1:1</th>
+        <th title="EPIC Graduate">EPIC</th>
+      </tr></thead>
+      <tbody id="fullBody"></tbody>
+    </table>
+    <div class="pager">
+      <span id="pageInfo"></span>
+      <button id="prevBtn" onclick="changePage(-1)">← Prev</button>
+      <button id="nextBtn" onclick="changePage(1)">Next →</button>
+    </div>
+  </div>
+
+  <div id="emergingCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>Emerging volunteers (2–3 actions)</h2>
+    <div class="search-row">
+      <input type="text" id="emergingSearch" placeholder="Search by name or county..." oninput="filterEmerging()">
+    </div>
+    <table class="vol-table">
+      <thead><tr>
+        <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>County</th><th>Actions</th><th>Total Memberships (P2A)</th><th>C'26</th><th>C'25</th><th>1:1</th><th>EPIC</th>
+      </tr></thead>
+      <tbody id="emergingBody"></tbody>
+    </table>
+    <div class="pager">
+      <span id="emergingPageInfo"></span>
+      <button id="emergingPrevBtn" onclick="changeEmergingPage(-1)">← Prev</button>
+      <button id="emergingNextBtn" onclick="changeEmergingPage(1)">Next →</button>
+    </div>
+  </div>
+
+  <div id="activeCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>Active volunteers (4–5 actions)</h2>
+    <div class="search-row">
+      <input type="text" id="activeSearch" placeholder="Search by name or county..." oninput="filterActive()">
+    </div>
+    <table class="vol-table">
+      <thead><tr>
+        <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>County</th><th>Actions</th><th>Total Memberships (P2A)</th><th>Tier</th>
+        <th title="Capitol Day 2026">C'26</th>
+        <th title="Capitol Day 2025">C'25</th>
+        <th title="1:1 Meeting">1:1</th>
+        <th title="EPIC Graduate">EPIC</th>
+      </tr></thead>
+      <tbody id="activeBody"></tbody>
+    </table>
+    <div class="pager">
+      <span id="activePageInfo"></span>
+      <button id="activePrevBtn" onclick="changeActivePage(-1)">← Prev</button>
+      <button id="activeNextBtn" onclick="changeActivePage(1)">Next →</button>
+    </div>
+  </div>
+
+  <div id="inactiveCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>Should Connect With (0–1 actions)</h2>
+    <p class="modal-cap" style="margin-bottom:14px">Includes advocates logged in P2A Data who have never appeared in Parent Action Data (0 actions), plus anyone with exactly 1 logged action.</p>
+    <div class="search-row">
+      <input type="text" id="inactiveSearch" placeholder="Search by name or county..." oninput="filterInactive()">
+    </div>
+    <table class="vol-table">
+      <thead><tr>
+        <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>County</th><th>Actions</th><th>Total Memberships (P2A)</th><th>C'26</th><th>C'25</th><th>1:1</th><th>EPIC</th>
+      </tr></thead>
+      <tbody id="inactiveBody"></tbody>
+    </table>
+    <div class="pager">
+      <span id="inactivePageInfo"></span>
+      <button id="inactivePrevBtn" onclick="changeInactivePage(-1)">← Prev</button>
+      <button id="inactiveNextBtn" onclick="changeInactivePage(1)">Next →</button>
+    </div>
+  </div>
+
+
+  <div class="sec-title">Geography &amp; Outreach</div>
+  <div id="countyCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>Advocates by county</h2>
+    <div class="search-row">
+      <input type="text" id="countySearch" placeholder="Search county..." oninput="filterCounty()">
+    </div>
+    <table class="vol-table">
+      <thead><tr>
+        <th>#</th><th>County</th><th>Unique Advocates</th>
+      </tr></thead>
+      <tbody id="countyBody"></tbody>
+    </table>
+    <div class="pager">
+      <span id="countyPageInfo"></span>
+      <button id="countyPrevBtn" onclick="changeCountyPage(-1)">← Prev</button>
+      <button id="countyNextBtn" onclick="changeCountyPage(1)">Next →</button>
+    </div>
+  </div>
+
+  <div id="chartCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>Monthly event attendance (2025–2026)</h2>
+    <div style="position:relative;height:220px"><canvas id="monthlyChart"></canvas></div>
+  </div>
+
+  <div id="lawmakerCard" class="card hidden" style="margin-bottom:1.5rem">
+    <h2>Emails sent to elected officials</h2>
+    <div id="lawmakerChartWrap" style="position:relative;"></div>
+  </div>
+</div>
+
+<div id="logModalOverlay" class="modal-overlay hidden" onclick="if(event.target===this) closeLogModal()">
+  <div class="modal-box">
+    <h2>Log a 1:1</h2>
+    <p class="modal-cap">This saves to your browser only — it does not write to the Google Sheet. Fill it out, then use "Copy row" to paste it into the right 1:1 tab.</p>
+    <form id="logForm" onsubmit="submitLogEntry(event)">
+      <div class="form-grid">
+        <div class="field">
+          <label for="lf_staffer">Staffer *</label>
+          <select id="lf_staffer" required>
+            <option value="Ty'Sheka">Ty'Sheka</option>
+            <option value="Missy">Missy</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="lf_date">Date *</label>
+          <input type="date" id="lf_date" required>
+        </div>
+        <div class="field">
+          <label for="lf_first">First name *</label>
+          <input type="text" id="lf_first" required>
+        </div>
+        <div class="field">
+          <label for="lf_last">Last name</label>
+          <input type="text" id="lf_last">
+        </div>
+        <div class="field">
+          <label for="lf_email">Email</label>
+          <input type="email" id="lf_email">
+        </div>
+        <div class="field">
+          <label for="lf_district">District / County</label>
+          <input type="text" id="lf_district">
+        </div>
+        <div class="field">
+          <label for="lf_role">Role</label>
+          <input type="text" id="lf_role" placeholder="Parent, Teacher, School Leader...">
+        </div>
+        <div class="field">
+          <label for="lf_fellow">Parent Fellow?</label>
+          <select id="lf_fellow">
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid full">
+        <div class="field">
+          <label>I'm a...</label>
+          <p class="field-hint">Check all that apply</p>
+          <div class="checkbox-group" id="lf_iAmA">
+            <label class="chk-pill"><input type="checkbox" value="Parent"> Parent</label>
+            <label class="chk-pill"><input type="checkbox" value="Educator"> Educator</label>
+            <label class="chk-pill"><input type="checkbox" value="Community advocate without children in the education system"> Community advocate without children in the education system</label>
+            <label class="chk-pill"><input type="checkbox" value="Student"> Student</label>
+            <label class="chk-pill"><input type="checkbox" value="Elected leader or public official"> Elected leader or public official</label>
+          </div>
+        </div>
+      </div>
+      <div class="form-grid full">
+        <div class="field">
+          <label>My children attend...</label>
+          <p class="field-hint">Check all that apply</p>
+          <div class="checkbox-group" id="lf_childrenAttend">
+            <label class="chk-pill"><input type="checkbox" value="Public school"> Public school</label>
+            <label class="chk-pill"><input type="checkbox" value="Private school"> Private school</label>
+            <label class="chk-pill"><input type="checkbox" value="Microschool"> Microschool</label>
+            <label class="chk-pill"><input type="checkbox" value="Homeschool"> Homeschool</label>
+            <label class="chk-pill"><input type="checkbox" value="College"> College</label>
+            <label class="chk-pill"><input type="checkbox" value="My children are no longer in the education system"> My children are no longer in the education system</label>
+            <label class="chk-pill"><input type="checkbox" value="Does not apply to me"> Does not apply to me</label>
+          </div>
+        </div>
+      </div>
+      <div class="form-grid full">
+        <div class="field">
+          <label>My children participate in the following school choice programs...</label>
+          <p class="field-hint">Check all that apply</p>
+          <div class="checkbox-group" id="lf_choicePrograms">
+            <label class="chk-pill"><input type="checkbox" value="Georgia Promise Scholarship"> Georgia Promise Scholarship</label>
+            <label class="chk-pill"><input type="checkbox" value="Georgia Special Needs Scholarship"> Georgia Special Needs Scholarship</label>
+            <label class="chk-pill"><input type="checkbox" value="SSO tax credit scholarship"> SSO tax credit scholarship</label>
+            <label class="chk-pill"><input type="checkbox" value="I do not use either program"> I do not use either program</label>
+          </div>
+        </div>
+      </div>
+      <div class="form-grid full">
+        <div class="field">
+          <label>Willing to help GeorgiaCAN advocate for these policies by...</label>
+          <p class="field-hint">Pick one engagement level per topic — leave a row blank if it didn't come up</p>
+          <div class="engagement-grid-wrap" id="engagementGridWrap"></div>
+        </div>
+      </div>
+      <div class="form-grid full">
+        <div class="field">
+          <label for="lf_interest">Topic / interest</label>
+          <textarea id="lf_interest" placeholder="What did you talk about?"></textarea>
+        </div>
+      </div>
+      <div class="form-grid full">
+        <div class="field">
+          <label for="lf_notes">Notes</label>
+          <textarea id="lf_notes" placeholder="Follow-up, context, next steps..."></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" onclick="closeLogModal()">Cancel</button>
+        <button type="submit" class="btn-primary">Save 1:1</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const SHEET_ID = '1rOg3OUdTmrsqlaimq_L4iKkBQFsKyGkuMxMJxJt4GtU';
+const SHEETS = {
+  master: 'Master Parent Action List',
+  cap26: '2026 Capitol Day Signups',
+  cap25: 'Capitol Day Attendees',
+  missy: 'Archive of Missy 1:1s',
+  tysheka: "2026 Ty'Sheka 1:1s",
+  missy26: "2026 Missy 1:1s",
+  epicAll: 'All EPIC graduates',
+  events26: '2026 GeorgiaCAN Events',
+  events25: '2025 GeorgiaCAN Events',
+  emails: '2026 GeorgiaCAN Emails to Lawmakers',
+  electedEmails: 'Emails sent to elected officials',
+  advocateCalls: 'The # of Advocates who called lawmakers',
+  parentActions: 'Parent Action Data',
+  p2a: 'P2A Data',
+};
+
+let apiKey = 'AIzaSyAj9DGhCarUjrwjFYanFFVrfmV0SSI_7wY';
+let allVolunteers = [];
+let filtered = [];
+let currentPage = 1;
+const PAGE_SIZE = 15;
+let chartInst = null;
+let emergingFiltered = [];
+let emergingPage = 1;
+const EMERGING_PAGE_SIZE = 15;
+let activeFiltered = [];
+let activePage = 1;
+const ACTIVE_PAGE_SIZE = 15;
+let inactiveFiltered = [];
+let inactivePage = 1;
+const INACTIVE_PAGE_SIZE = 15;
+let countyData = [];
+let countyFiltered = [];
+let countyPage = 1;
+const COUNTY_PAGE_SIZE = 20;
+let _missyRaw = [], _missy26Raw = [], _tyshekaRaw = [];
+let _p2aRaw = [], _parentActionsRaw = [];
+let _epicSet = new Set();
+
+function dot(v) { return `<span class="dot ${v ? 'dot-y' : 'dot-n'}"></span>`; }
+
+// ---------- Locally-logged 1:1s (staff upload) ----------
+// These live in this browser's localStorage only. The dashboard's real data
+// source is the Google Sheet (read via API key, read-only from here), so
+// there is no direct write-back. This queue lets staff capture a 1:1 on the
+// spot, see it reflected in this session immediately, and copy a ready-made
+// row to paste into the right sheet tab to make it permanent.
+const LOCAL_11_KEY = 'georgiacan_pending_11s';
+
+// ---------- "Log a 1:1" survey topics ----------
+const ENGAGEMENT_TOPICS = [
+  'Literacy', 'Math', 'School funding', 'Charter schools', 'Private school choice',
+  'Open enrollment', 'Teacher quality', 'School accountability', 'Access to tutoring',
+  'Career readiness', 'College readiness', 'Mental health support', 'Learning outside the classroom',
+];
+const ENGAGEMENT_LEVELS = [
+  'Not interested',
+  'Learning more',
+  'Call or send an email to my public official',
+  'Advocate at the Capitol or the school board',
+  'Provide a quote, anecdote, or comment in a press release or article',
+];
+// Short column headers for the grid; full text lives in the title attribute
+const ENGAGEMENT_LEVEL_SHORT = ['Not interested', 'Learning more', 'Call / email official', 'Advocate at Capitol / board', 'Quote for press'];
+
+function engTopicKey(topic) { return topic.toLowerCase().replace(/[^a-z0-9]+/g, '_'); }
+
+function buildEngagementGrid() {
+  const wrap = document.getElementById('engagementGridWrap');
+  if (!wrap) return;
+  const head = '<tr><th></th>' + ENGAGEMENT_LEVELS.map((l, i) => `<th title="${l}">${ENGAGEMENT_LEVEL_SHORT[i]}</th>`).join('') + '</tr>';
+  const rows = ENGAGEMENT_TOPICS.map(topic => {
+    const key = engTopicKey(topic);
+    const cells = ENGAGEMENT_LEVELS.map(level =>
+      `<td><input type="radio" name="eng_${key}" value="${level.replace(/"/g, '&quot;')}"></td>`
+    ).join('');
+    return `<tr><td>${topic}</td>${cells}</tr>`;
+  }).join('');
+  wrap.innerHTML = `<table class="engagement-grid">${head}${rows}</table>`;
+}
+buildEngagementGrid();
+
+// Toggle the .checked visual state on checkbox pills as they're (un)checked
+document.querySelectorAll('.checkbox-group').forEach(group => {
+  group.addEventListener('change', e => {
+    const pill = e.target.closest('.chk-pill');
+    if (pill) pill.classList.toggle('checked', e.target.checked);
+  });
+});
+
+function checkedValues(groupId) {
+  return Array.from(document.querySelectorAll(`#${groupId} input:checked`)).map(el => el.value);
+}
+function collectEngagement() {
+  const result = {};
+  ENGAGEMENT_TOPICS.forEach(topic => {
+    const key = engTopicKey(topic);
+    const checked = document.querySelector(`input[name="eng_${key}"]:checked`);
+    if (checked) result[topic] = checked.value;
+  });
+  return result;
+}
+
+function loadPending11s() {
+  try {
+    const raw = localStorage.getItem(LOCAL_11_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function savePending11s(list) {
+  try { localStorage.setItem(LOCAL_11_KEY, JSON.stringify(list)); } catch (e) {}
+}
+let pending11s = loadPending11s();
+
+function openLogModal() {
+  document.getElementById('logForm').reset();
+  document.getElementById('lf_date').value = new Date().toISOString().slice(0, 10);
+  document.querySelectorAll('.chk-pill.checked').forEach(p => p.classList.remove('checked'));
+  document.getElementById('logModalOverlay').classList.remove('hidden');
+}
+function closeLogModal() {
+  document.getElementById('logModalOverlay').classList.add('hidden');
+}
+function submitLogEntry(e) {
+  e.preventDefault();
+  const entry = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    staffer: document.getElementById('lf_staffer').value,
+    first: document.getElementById('lf_first').value.trim(),
+    last: document.getElementById('lf_last').value.trim(),
+    email: document.getElementById('lf_email').value.trim(),
+    district: document.getElementById('lf_district').value.trim(),
+    role: document.getElementById('lf_role').value.trim(),
+    fellow: document.getElementById('lf_fellow').value,
+    interest: document.getElementById('lf_interest').value.trim(),
+    notes: document.getElementById('lf_notes').value.trim(),
+    date: document.getElementById('lf_date').value,
+    loggedAt: new Date().toISOString(),
+    iAmA: checkedValues('lf_iAmA'),
+    childrenAttend: checkedValues('lf_childrenAttend'),
+    choicePrograms: checkedValues('lf_choicePrograms'),
+    engagement: collectEngagement(),
+  };
+  if (!entry.first) return;
+  pending11s.unshift(entry);
+  savePending11s(pending11s);
+  renderPending11s();
+  closeLogModal();
+  // Reflect immediately in whatever's currently on screen, without a full reload
+  if (allVolunteers.length) applyLocalOverridesAndRerender();
+}
+function removePending11(id) {
+  pending11s = pending11s.filter(p => p.id !== id);
+  savePending11s(pending11s);
+  renderPending11s();
+  if (allVolunteers.length) applyLocalOverridesAndRerender();
+}
+function engagementToText(engagement) {
+  return Object.entries(engagement || {}).map(([topic, level]) => `${topic}: ${level}`).join('; ');
+}
+function copyPendingRow(id, btn) {
+  const p = pending11s.find(x => x.id === id);
+  if (!p) return;
+  // Matches the column layout of the "2026 Ty'Sheka 1:1s" / "2026 Missy 1:1s" tabs
+  // (staffer, first name, last name...), with the new survey fields appended as
+  // extra columns at the end — add matching headers in the sheet to capture them.
+  const row = [
+    p.staffer, p.first, p.last, p.date, p.district, p.role, p.fellow, p.interest, p.notes, p.email,
+    (p.iAmA || []).join('; '),
+    (p.childrenAttend || []).join('; '),
+    (p.choicePrograms || []).join('; '),
+    engagementToText(p.engagement),
+  ].join('\t');
+  const doCopiedState = () => {
+    if (!btn) return;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1400);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(row).then(doCopiedState).catch(() => {});
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = row; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); doCopiedState(); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+}
+function renderPending11s() {
+  const el = document.getElementById('pendingList');
+  if (!pending11s.length) {
+    el.innerHTML = '<p class="empty-note">No 1:1s logged yet on this device. Use "+ Log a 1:1" above to add one.</p>';
+    return;
+  }
+  el.innerHTML = pending11s.map(p => {
+    const tags = [...(p.iAmA || []), ...(p.childrenAttend || []), ...(p.choicePrograms || [])];
+    const engEntries = Object.entries(p.engagement || {}).filter(([, level]) => level !== 'Not interested');
+    return `
+    <div class="pending-row">
+      <div>
+        <div class="pending-name">${p.first} ${p.last || ''}</div>
+        <div class="pending-meta">${p.staffer}${p.date ? ' · ' + p.date : ''}${p.district ? ' · ' + p.district : ''}${p.role ? ' · ' + p.role : ''}${p.fellow === 'Yes' ? ' · Parent Fellow' : ''}</div>
+        ${p.interest ? `<div class="pending-interest">${p.interest}</div>` : ''}
+        ${tags.length ? `<div class="checkbox-group" style="margin-top:8px">${tags.map(t => `<span class="chk-pill checked" style="cursor:default;padding:4px 10px;font-size:11px">${t}</span>`).join('')}</div>` : ''}
+        ${engEntries.length ? `<div class="pending-interest" style="margin-top:6px"><strong>Willing to act:</strong> ${engEntries.map(([topic, level]) => `${topic} (${level})`).join(', ')}</div>` : ''}
+      </div>
+      <div class="pending-actions">
+        <button onclick="copyPendingRow('${p.id}', this)">Copy row</button>
+        <button onclick="removePending11('${p.id}')">Synced — remove</button>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+// Build a name-key set of everyone logged locally, so the 1:1 dot shows up
+// immediately even before it's been pasted into the sheet.
+function localOoKeySet() {
+  return new Set(pending11s.map(p => nameKey(p.first, p.last || '')).filter(Boolean));
+}
+// Re-run the parts of rendering that depend on the 1:1 flag, without
+// re-fetching the sheets.
+function applyLocalOverridesAndRerender() {
+  const localOo = localOoKeySet();
+  allVolunteers.forEach(v => { v.oo = v.oo || localOo.has(v.key); });
+  filtered = filtered.map(v => v);
+  renderTable();
+  renderEmergingTable();
+  renderActiveTable();
+  renderInactiveTable();
+}
+
+async function fetchSheet(name) {
+  const enc = encodeURIComponent("'" + name + "'");
+  const bust = Date.now();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${enc}?key=${apiKey}&_=${bust}`;
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || 'API error'); }
+  const d = await r.json();
+  return d.values || [];
+}
+
+// One bad/renamed/rate-limited tab shouldn't take the whole dashboard down.
+// Every sheet load goes through this so a single failure just leaves that
+// section's numbers at zero/blank (and gets called out in the banner)
+// instead of aborting the entire load.
+let failedSheets = [];
+async function fetchSheetSafe(label, name) {
+  try {
+    return await fetchSheet(name);
+  } catch (e) {
+    failedSheets.push(label);
+    return [];
+  }
+}
+
+function rowsToObjs(rows) {
+  if (!rows.length) return [];
+  const hdr = rows[0];
+  return rows.slice(1).map(r => Object.fromEntries(hdr.map((h, i) => [h, (r[i] ?? '').toString().trim()])));
+}
+
+function nameKey(fn, ln) { return `${fn} ${ln}`.trim().toLowerCase(); }
+
+// ---------- 1:1 Meeting Log — parsed live from the Google Sheet ----------
+// These tabs don't have consistent headers, so we try name-based column
+// detection first (safest — matches whatever the sheet actually calls its
+// columns), and fall back to the known-reliable positions (col 1 = First
+// Name, col 2 = Last Name) when no header row is recognized. Extra fields
+// (date/district/role/interest/notes/email) only populate when we can
+// confidently find a matching header; otherwise they're left blank rather
+// than guessed, so nothing gets mislabeled.
+function findCol(header, ...keys) {
+  return header.findIndex(h => keys.some(k => h.includes(k)));
+}
+function parseElevenSheet(raw, staffer, archived) {
+  if (!raw || raw.length < 2) return [];
+  const header = (raw[0] || []).map(h => (h || '').toString().trim().toLowerCase());
+  const hasHeader = header.some(h => h.includes('first name')) || header.some(h => h.includes('last name'));
+  const idx = { first: 1, last: 2, date: -1, district: -1, role: -1, interest: -1, notes: -1, email: -1, fellow: -1 };
+  if (hasHeader) {
+    const f = findCol(header, 'first name');
+    const l = findCol(header, 'last name');
+    if (f > -1) idx.first = f;
+    if (l > -1) idx.last = l;
+    idx.date = findCol(header, 'date');
+    idx.district = findCol(header, 'district', 'county');
+    idx.role = findCol(header, 'role');
+    idx.interest = findCol(header, 'interest', 'topic');
+    idx.notes = findCol(header, 'notes');
+    idx.email = findCol(header, 'email');
+    idx.fellow = findCol(header, 'staff or fellow', 'fellow');
+  }
+  return raw.slice(1).map(r => {
+    const first = idx.first > -1 ? (r[idx.first] || '').toString().trim() : '';
+    const last = idx.last > -1 ? (r[idx.last] || '').toString().trim() : '';
+    if (!first && !last) return null;
+    return {
+      staffer, archived,
+      first, last,
+      date: idx.date > -1 ? (r[idx.date] || '').toString().trim() : '',
+      district: idx.district > -1 ? (r[idx.district] || '').toString().trim() : '',
+      role: idx.role > -1 ? (r[idx.role] || '').toString().trim() : '',
+      interest: idx.interest > -1 ? (r[idx.interest] || '').toString().trim() : '',
+      notes: idx.notes > -1 ? (r[idx.notes] || '').toString().trim() : '',
+      email: idx.email > -1 ? (r[idx.email] || '').toString().trim() : '',
+      fellow: idx.fellow > -1 ? (r[idx.fellow] || '').toString().trim() : '',
+    };
+  }).filter(Boolean);
+}
+
+let meetingLog = [];
+let meetingStaff = 'all';
+let meetingPage = 1;
+const MEETING_PAGE_SIZE = 15;
+
+function renderMeetingLog() {
+  const q = (document.getElementById('meetingSearch').value || '').trim().toLowerCase();
+  let list = meetingLog;
+  if (meetingStaff !== 'all') list = list.filter(m => m.staffer === meetingStaff);
+  if (q) list = list.filter(m =>
+    `${m.first} ${m.last}`.toLowerCase().includes(q) ||
+    (m.interest || '').toLowerCase().includes(q) ||
+    (m.district || '').toLowerCase().includes(q)
+  );
+  list = list.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  document.getElementById('meetingCount').textContent = `${list.length} of ${meetingLog.length} meetings`;
+  document.getElementById('meetingEmptyState').style.display = list.length ? 'none' : 'block';
+
+  const pages = Math.max(1, Math.ceil(list.length / MEETING_PAGE_SIZE));
+  meetingPage = Math.min(meetingPage, pages);
+  const start = (meetingPage - 1) * MEETING_PAGE_SIZE;
+  const page = list.slice(start, start + MEETING_PAGE_SIZE);
+
+  document.getElementById('meetingCards').innerHTML = page.map(m => {
+    const cls = m.staffer === 'Missy' ? 'missy' : 'tysheka';
+    const initial = m.staffer === 'Missy' ? 'M' : 'T';
+    const dateDisp = m.date && !isNaN(new Date(m.date).getTime())
+      ? new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : (m.date || '—');
+    return `
+      <div class="meeting-card ${cls}">
+        <div class="meeting-badge">${initial}</div>
+        <p class="m-name">${m.first} ${m.last || ''}</p>
+        <p class="m-meta">${dateDisp}${m.district ? ' · ' + m.district : ''}${m.role ? ' · ' + m.role : ''}</p>
+        ${m.interest ? `<p class="m-interest">${m.interest}</p>` : '<p class="m-interest" style="color:var(--navy-soft);font-style:italic">No topic logged</p>'}
+        ${m.notes ? `<p class="m-notes">${m.notes}</p>` : ''}
+        ${m.archived ? `<span class="archive-flag">Archive</span>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('meetingPager').innerHTML = pages > 1 ? `
+    <span>${start + 1}–${Math.min(start + MEETING_PAGE_SIZE, list.length)} of ${list.length}</span>
+    <button ${meetingPage <= 1 ? 'disabled' : ''} onclick="meetingPage--;renderMeetingLog()">← Prev</button>
+    <button ${meetingPage >= pages ? 'disabled' : ''} onclick="meetingPage++;renderMeetingLog()">Next →</button>
+  ` : '';
+}
+document.getElementById('meetingStaffToggle').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  meetingStaff = btn.dataset.staff;
+  meetingPage = 1;
+  document.querySelectorAll('#meetingStaffToggle button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderMeetingLog();
+});
+document.getElementById('meetingSearch').addEventListener('input', () => { meetingPage = 1; renderMeetingLog(); });
+
+async function fetchEmailTotal() {
+  // Try full sheet name first, then truncated fallback
+  const names = ['2026 GeorgiaCAN Emails to Lawmakers'];
+  for (const name of names) {
+    try {
+      const range = encodeURIComponent("'" + name + "'!F7");
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?key=${apiKey}`;
+      const r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) continue;
+      const d = await r.json();
+      const val = d.values?.[0]?.[0];
+      if (val !== undefined) return [['value'], [val]];
+    } catch(e) { continue; }
+  }
+  // Fallback: fetch whole sheet and sum
+  try { return await fetchSheet('2026 GeorgiaCAN Emails to Lawmakers'); } catch(e) {}
+  return [];
+}
+
+async function loadData() {
+  if (!apiKey) return;
+  setStatus('loading', 'Loading data...');
+  const btn = document.getElementById('refreshBtn');
+  btn.innerHTML = '<span class="spin">↻</span> Loading';
+  btn.disabled = true;
+
+  failedSheets = [];
+  const [masterRaw, cap26Raw, cap25Raw, missyRaw, tyshekaRaw, missy26Raw, ev26Raw, ev25Raw, emailsRaw, p2aRaw, parentActionsRaw, electedEmailsRaw, epicAllRaw, advocateCallsRaw] = await Promise.all([
+    fetchSheetSafe('Master Parent Action List', SHEETS.master),
+    fetchSheetSafe('2026 Capitol Day Signups', SHEETS.cap26),
+    fetchSheetSafe('Capitol Day Attendees', SHEETS.cap25),
+    fetchSheetSafe('Archive of Missy 1:1s', SHEETS.missy),
+    fetchSheetSafe("2026 Ty'Sheka 1:1s", SHEETS.tysheka),
+    fetchSheetSafe('2026 Missy 1:1s', SHEETS.missy26),
+    fetchSheetSafe('2026 GeorgiaCAN Events', SHEETS.events26),
+    fetchSheetSafe('2025 GeorgiaCAN Events', SHEETS.events25),
+    fetchEmailTotal().catch(() => { failedSheets.push('2026 GeorgiaCAN Emails to Lawmakers'); return []; }),
+    fetchSheetSafe('P2A Data', SHEETS.p2a),
+    fetchSheetSafe('Parent Action Data', SHEETS.parentActions),
+    fetchSheetSafe('Emails sent to elected officials', SHEETS.electedEmails),
+    fetchSheetSafe('All EPIC graduates', SHEETS.epicAll),
+    fetchSheetSafe('The # of Advocates who called lawmakers', SHEETS.advocateCalls),
+  ]);
+
+  const cap26Set = new Set(rowsToObjs(cap26Raw)
+    .map(r => nameKey(r['advocate_name_first'] || '', r['advocate_name_last'] || '')).filter(Boolean));
+  const cap25Set = new Set(rowsToObjs(cap25Raw)
+    .map(r => nameKey(r['First Name'] || '', r['Last Name'] || '')).filter(Boolean));
+  _missyRaw = missyRaw; _missy26Raw = missy26Raw; _tyshekaRaw = tyshekaRaw;
+  meetingLog = [
+    ...parseElevenSheet(tyshekaRaw, "Ty'Sheka", false),
+    ...parseElevenSheet(missy26Raw, 'Missy', false),
+    ...parseElevenSheet(missyRaw, 'Missy', true),
+  ];
+  renderMeetingLog();
+  _p2aRaw = p2aRaw; _parentActionsRaw = parentActionsRaw;
+
+  // Normalize county text so "Fulton County", "FULTON", "fulton co." etc. all
+  // collapse into one consistent "Fulton" — otherwise the same county gets
+  // split into multiple rows in the breakdown and roster tables.
+  function normalizeCounty(raw) {
+    let c = (raw || '').toString().trim();
+    if (!c || c.toLowerCase() === 'nan') return '';
+    c = c.replace(/\s*co(?:unty)?\.?\s*$/i, '').trim();
+    if (!c) return '';
+    return c.toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
+  }
+
+  // Build county lookups from P2A (First & Last Name -> County) and Parent
+  // Action Data (col 8 = County), keyed by full name so it can be attached
+  // to each volunteer below as well as used for the county breakdown table.
+  const advocateCountyMap = {}; // fullName -> county
+  const p2aRowsForCounty = rowsToObjs(p2aRaw || []);
+  p2aRowsForCounty.forEach(r => {
+    const name = (r['First & Lase Name '] || `${r['First Name']} ${r['Last Name']}`).trim();
+    const county = normalizeCounty(r['County']);
+    if (name && county) advocateCountyMap[name] = county;
+  });
+  // PAD now has county in column I (index 8), col 0 = first name, col 1 = last name
+  (parentActionsRaw || []).forEach(r => {
+    const fn = (r[0] || '').toString().trim();
+    const ln = (r[1] || '').toString().trim();
+    const county = normalizeCounty(r[8]);
+    if (!fn || !ln || fn === 'nan') return;
+    const full = `${fn} ${ln}`;
+    // Use PAD county if available, don't overwrite existing P2A county
+    if (county) {
+      if (!advocateCountyMap[full]) advocateCountyMap[full] = county;
+    } else if (!advocateCountyMap[full]) {
+      advocateCountyMap[full] = 'Unknown';
+    }
+  });
+  const countyCounts = {};
+  Object.values(advocateCountyMap).forEach(county => {
+    if (county && county !== 'Unknown') {
+      countyCounts[county] = (countyCounts[county] || 0) + 1;
+    }
+  });
+  countyData = Object.entries(countyCounts).sort((a, b) => b[1] - a[1]);
+  // Secondary lookup keyed by normalized name, since advocateCountyMap's keys
+  // come from two different sheets and may not always match a volunteer's
+  // exact name string.
+  const advocateCountyByKey = {};
+  Object.entries(advocateCountyMap).forEach(([name, county]) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length < 2) return;
+    advocateCountyByKey[nameKey(parts[0], parts.slice(1).join(' '))] = county;
+  });
+  function lookupCounty(name, key) {
+    const c = advocateCountyMap[name] || advocateCountyByKey[key] || '';
+    return c === 'Unknown' ? '' : c;
+  }
+
+  // All 11s sheets have staffer name in col 0, First Name in col 1, Last Name in col 2
+  // None have reliable headers so we always read by column position, skip row 0 (header)
+  function namesFromRaw(raw) {
+    if (!raw || raw.length < 2) return [];
+    return raw.slice(1).map(r => nameKey(r[1] || '', r[2] || '')).filter(Boolean);
+  }
+  const ooSet = new Set([
+    ...namesFromRaw(missyRaw),
+    ...namesFromRaw(tyshekaRaw),
+    ...namesFromRaw(missy26Raw),
+    ...localOoKeySet(),
+  ]);
+  // EPIC data: pull exclusively from 'All EPIC graduates' sheet
+  // Detect header row: if first row contains 'First Name', use header-based lookup
+  // otherwise use column positions (col 0 = first name, col 1 = last name)
+  // Build epicSet from 'All EPIC graduates' sheet
+  // Headers are: First Name, Last Name
+  const epicRaw = epicAllRaw || [];
+  const epicNames = [];
+  if (epicRaw.length > 1) {
+    const hdr = (epicRaw[0] || []).map(h => (h||'').toString().toLowerCase().trim());
+    const fnIdx = hdr.findIndex(h => h === 'first name' || h.includes('first'));
+    const lnIdx = hdr.findIndex(h => h === 'last name' || h.includes('last'));
+    epicRaw.slice(1).forEach(r => {
+      const fn = (r[fnIdx > -1 ? fnIdx : 0] || '').toString().trim();
+      const ln = (r[lnIdx > -1 ? lnIdx : 1] || '').toString().trim();
+      if (fn && ln && fn !== 'nan') {
+        // Add multiple name format variations to maximize matches
+        epicNames.push(nameKey(fn, ln));                          // "First Last"
+        epicNames.push(nameKey(fn.split(' ')[0], ln));            // "F Last" (strip middle)
+        epicNames.push(nameKey(fn, ln.split(' ')[0]));            // "First L" (strip suffix)
+        epicNames.push(nameKey(fn.split(' ')[0], ln.split(' ')[0])); // "F L" (both stripped)
+      }
+    });
+  }
+  _epicSet = new Set(epicNames.filter(n => n && n.length > 2));
+  const epicSet = _epicSet;
+  // Count actions per person from Parent Action Data (no header row, col 0 = first, col 1 = last)
+  const actionCounts = {};
+  const padEmailMap = {}; // nameKey -> email, sourced from Column D (index 3)
+  const looksLikeEmailPAD = v => v.includes('@') && v.includes('.');
+  (parentActionsRaw || []).forEach(r => {
+    const fn = (r[0] || '').toString().trim();
+    const ln = (r[1] || '').toString().trim();
+    if (!fn || !ln || fn === 'nan' || ln === 'nan') return;
+    const key = nameKey(fn, ln);
+    const emailD = (r[3] || '').toString().trim();
+    if (looksLikeEmailPAD(emailD) && !padEmailMap[key]) padEmailMap[key] = emailD;
+    // Also try first-word-only keys to catch middle name variations
+    const shortKey = nameKey(fn.split(' ')[0], ln);
+    actionCounts[key] = (actionCounts[key] || actionCounts[shortKey] || { name: `${fn} ${ln}`, count: 0 });
+    if (actionCounts[shortKey] && actionCounts[shortKey] !== actionCounts[key]) {
+      actionCounts[key].count += actionCounts[shortKey].count;
+      delete actionCounts[shortKey];
+    }
+    actionCounts[key].count++;
+  });
+
+  // Build P2A lookup for memberships, lifetime, email, and phone (has header row).
+  // Column names vary, and some sheets have more than one column whose header
+  // mentions "email" (e.g. a real "Email" column alongside something like
+  // "# of Emails Sent"). To avoid grabbing the wrong one, score every
+  // candidate column against the actual data — the real email column is the
+  // one whose values actually look like emails/phone numbers — rather than
+  // trusting the first header match.
+  const p2aLookup = {};
+  const p2aHeaderRow = (p2aRaw && p2aRaw[0]) || [];
+  function bestColumnByData(headerRow, dataRows, headerTest, valueTest) {
+    const candidates = [];
+    headerRow.forEach((h, i) => { if (headerTest((h || '').toString().toLowerCase())) candidates.push(i); });
+    if (!candidates.length) return null;
+    if (candidates.length === 1) return headerRow[candidates[0]];
+    let bestIdx = candidates[0], bestScore = -1;
+    candidates.forEach(idx => {
+      let score = 0;
+      for (let r = 1; r < Math.min(dataRows.length, 300); r++) {
+        const val = (dataRows[r][idx] || '').toString().trim();
+        if (val && valueTest(val)) score++;
+      }
+      if (score > bestScore) { bestScore = score; bestIdx = idx; }
+    });
+    return headerRow[bestIdx];
+  }
+  const looksLikeEmail = v => v.includes('@') && v.includes('.');
+  const looksLikePhone = v => (v.match(/\d/g) || []).length >= 7;
+  const emailHeader = bestColumnByData(p2aHeaderRow, p2aRaw || [], h => h.includes('email'), looksLikeEmail);
+  const phoneHeader = bestColumnByData(p2aHeaderRow, p2aRaw || [], h => h.includes('phone') || h.includes('cell') || h.includes('mobile'), looksLikePhone);
+  const p2aObjs = rowsToObjs(p2aRaw || []);
+  p2aObjs.forEach(r => {
+    const fn = (r['First Name'] || '').trim();
+    const ln = (r['Last Name'] || '').trim();
+    if (!fn || !ln) return;
+    const key = nameKey(fn, ln);
+    const rawEmail = (emailHeader ? r[emailHeader] : '') || '';
+    const rawPhone = (phoneHeader ? r[phoneHeader] : '') || '';
+    p2aLookup[key] = {
+      name: `${fn} ${ln}`,
+      memberships: parseFloat(r['Total Memberships']) || 0,
+      connections: parseFloat(r['Total Connections']) || 0,
+      // Only keep the value if it actually looks like an email/phone number —
+      // otherwise a stray count/ID in that column would show up as "email".
+      email: looksLikeEmail(rawEmail.toString().trim()) ? rawEmail.toString().trim() : '',
+      phone: looksLikePhone(rawPhone.toString().trim()) ? rawPhone.toString().trim() : '',
+    };
+  });
+
+  allVolunteers = Object.entries(actionCounts).map(([key, v]) => {
+    const p2a = p2aLookup[key] || {};
+    const [fn, ...rest] = v.name.split(' ');
+    const ln = rest.join(' ');
+    return {
+      name: v.name,
+      key: key,
+      actions: v.count,
+      lifetime: (v.count || 0) + (p2a.memberships || 0),
+      memberships: p2a.memberships || 0,
+      email: padEmailMap[key] || p2a.email || '',
+      phone: p2a.phone || '',
+      county: lookupCounty(v.name, key),
+      cap26: cap26Set.has(key), cap25: cap25Set.has(key),
+      oo: ooSet.has(key),
+      epic: _epicSet.has(key) || _epicSet.has(nameKey(v.name.split(' ')[0], v.name.split(' ').slice(1).join(' '))) || _epicSet.has(nameKey(v.name.split(' ')[0], v.name.split(' ').pop()))
+    };
+  }).filter(v => v.name && v.name.length > 1);
+
+  // Advocates who exist in P2A Data but have never appeared in Parent Action
+  // Data are genuinely at 0 actions — that belongs in the Inactive tier, not
+  // just people stuck at exactly 1 action.
+  const seenVolunteerKeys = new Set(allVolunteers.map(v => v.key));
+  Object.entries(p2aLookup).forEach(([key, p2a]) => {
+    if (seenVolunteerKeys.has(key) || !p2a.name || p2a.name.trim().length < 2) return;
+    allVolunteers.push({
+      name: p2a.name,
+      key,
+      actions: 0,
+      lifetime: p2a.memberships || 0,
+      memberships: p2a.memberships || 0,
+      email: padEmailMap[key] || p2a.email || '',
+      phone: p2a.phone || '',
+      county: lookupCounty(p2a.name, key),
+      cap26: cap26Set.has(key), cap25: cap25Set.has(key),
+      oo: ooSet.has(key),
+      epic: _epicSet.has(key),
+    });
+    seenVolunteerKeys.add(key);
+  });
+
+  allVolunteers.sort((a, b) => b.actions - a.actions);
+
+  allVolunteers.forEach(v => {
+    v.tier = v.actions >= 8 ? 'Champion' : v.actions >= 6 ? 'High Yield' : v.actions >= 4 ? 'Active' : v.actions >= 2 ? 'Emerging' : 'Inactive';
+  });
+
+  const monthly = {};
+  [...rowsToObjs(ev25Raw), ...rowsToObjs(ev26Raw)].forEach(r => {
+    const d = r['Date'] || '';
+    const att = parseInt(r['Total Number of Attendees']) || 0;
+    if (d && att && !isNaN(new Date(d).getTime())) {
+      const key = new Date(d).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      monthly[key] = (monthly[key] || 0) + att;
+    }
+  });
+
+  // Count emails to lawmakers directly from Emails sent to elected officials sheet
+  // Each row = one email sent; has header row so skip row 0
+  let totalEmails = 0, totalCalls = 0;
+  const emailRows = (electedEmailsRaw || []);
+  totalEmails = emailRows.length > 1 ? emailRows.length - 1 : emailRows.length;
+  // Calls to lawmakers: each row = 1 call, check if first row is header or data
+  const callRows = (advocateCallsRaw || []);
+  if (callRows.length > 0) {
+    const firstCell = (callRows[0][0] || '').toString().toLowerCase();
+    // If first row looks like a header (contains words like 'name','date','advocate'), subtract 1
+    const isHeader = firstCell.includes('name') || firstCell.includes('date') || 
+                     firstCell.includes('advocate') || firstCell.includes('caller') ||
+                     (isNaN(firstCell) && firstCell.length > 0);
+    totalCalls = isHeader ? Math.max(0, callRows.length - 1) : callRows.length;
+  }
+
+  // Total volunteers = unique rows in P2A Data (most complete list)
+  // P2A has a header row so subtract 1
+  const totalVolunteers = (p2aRaw||[]).length > 1 ? (p2aRaw||[]).length - 1 : (p2aRaw||[]).length;
+
+  // Total actions over time = PAD row count + P2A Total Memberships (col V, index 21)
+  const padRowCount = Math.max(0, (parentActionsRaw||[]).length);
+  // Find Total Memberships column index in P2A (header row)
+  const p2aHdr = ((p2aRaw||[])[0] || []).map(h => (h||'').toString().toLowerCase().trim());
+  const totalMembershipsIdx = p2aHdr.findIndex(h => h === 'total memberships');
+  const p2aMembershipsTotal = (p2aRaw||[]).slice(1).reduce((s, r) => {
+    const v = parseFloat(r[totalMembershipsIdx > -1 ? totalMembershipsIdx : 21]) || 0;
+    return s + v;
+  }, 0);
+  const totalActions2526 = padRowCount + p2aMembershipsTotal;
+
+  // Count 2025 and 2026 actions using date in col P (index 15) of Parent Action Data
+  let actions2025 = 0, actions2026 = 0;
+  (parentActionsRaw||[]).forEach(r => {
+    const dateStr = (r[15] || '').toString().trim();
+    if (!dateStr || dateStr === 'nan') return;
+    const d = new Date(dateStr);
+    if (isNaN(d.getFullYear())) return;
+    if (d.getFullYear() === 2025) actions2025++;
+    else if (d.getFullYear() === 2026) actions2026++;
+  });
+
+  // Count emails per lawmaker from elected officials sheet
+  // Has header row: find recipient_title and recipient_name column indices
+  const electedRows = (electedEmailsRaw || []);
+  let titleIdx = 0, nameIdx = 1;
+  if (electedRows.length > 0) {
+    const hdr = electedRows[0].map(h => (h||'').toString().toLowerCase());
+    titleIdx = hdr.findIndex(h => h.includes('recipient_title') || h.includes('title'));
+    nameIdx = hdr.findIndex(h => h.includes('recipient_name') || h.includes('name'));
+    if (titleIdx < 0) titleIdx = 0;
+    if (nameIdx < 0) nameIdx = 1;
+  }
+  const lawmakerCounts = {};
+  electedRows.slice(1).forEach(r => {
+    const name = (r[nameIdx] || '').toString().trim();
+    if (!name) return;
+    lawmakerCounts[name] = (lawmakerCounts[name] || 0) + 1;
+  });
+  const lawmakerData = Object.entries(lawmakerCounts)
+    .sort((a, b) => b[1] - a[1]);
+
+  renderDashboard(monthly, totalEmails, totalCalls, totalVolunteers, totalActions2526, actions2025, actions2026, lawmakerData);
+  if (failedSheets.length) {
+    document.getElementById('errMsg').textContent =
+      `Loaded, but couldn't reach: ${failedSheets.join(', ')}. Those sections may show zero/blank until the tab name is fixed or the sheet is reachable again.`;
+    setStatus('error', 'Live (partial) — updated ' + new Date().toLocaleTimeString());
+  } else {
+    document.getElementById('errMsg').textContent = '';
+    setStatus('live', 'Live — updated ' + new Date().toLocaleTimeString());
+  }
+  
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16"><path d="M13.65 2.35A8 8 0 1 0 15 8h-2a6 6 0 1 1-1.05-3.35L9 7h6V1l-1.35 1.35z" fill="currentColor"/></svg> Refresh';
+  btn.disabled = false;
+  btn.classList.remove('hidden');
+}
+
+function setStatus(state, msg) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot' + (state === 'live' ? ' live' : state === 'error' ? ' error' : '');
+  document.getElementById('lastUpd').textContent = msg;
+}
+
+function renderDashboard(monthly, totalEmails=664, totalCalls=345, totalVolunteers=0, totalActions2526=0, actions2025=0, actions2026=0, lawmakerData=[]) {
+  const total = allVolunteers.length;
+  const champions = allVolunteers.filter(v => v.tier === 'Champion').length;
+  const highYield = allVolunteers.filter(v => v.tier === 'High Yield').length;
+  const active = allVolunteers.filter(v => v.tier === 'Active').length;
+  const emerging = allVolunteers.filter(v => v.tier === 'Emerging').length;
+  const inactive = allVolunteers.filter(v => v.tier === 'Inactive').length;
+  const totalAct = allVolunteers.reduce((s, v) => s + v.actions, 0);
+  const cap26c = allVolunteers.filter(v => v.cap26).length;
+
+  const kpiEl = document.getElementById('kpiGrid');
+  kpiEl.classList.remove('hidden');
+  // 2026 Missy 11s has no header row - all rows are data entries
+  const missy26Count = (_missy26Raw || []).length;
+  const tyshekaCount = (_tyshekaRaw || []).length > 1 ? (_tyshekaRaw || []).length - 1 : 0;
+
+  kpiEl.innerHTML = [
+    { l: 'Total volunteers', v: (totalVolunteers || total).toLocaleString(), c: '' },
+    { l: 'Total actions over time', v: (totalActions2526 || totalAct).toLocaleString(), c: 'teal' },
+    { l: 'Actions taken in 2025', v: actions2025.toLocaleString(), c: 'green' },
+    { l: 'Actions taken in 2026', v: actions2026.toLocaleString(), c: 'blue' },
+    { l: 'Champions (8+)', v: champions, c: 'gold' },
+    { l: 'High yield (6–7)', v: highYield, c: '' },
+    { l: 'Active (4–5)', v: active, c: 'green' },
+
+    { l: 'Capitol day 2026', v: cap26c, c: '' },
+    { l: 'EPIC graduates', v: _epicSet.size.toLocaleString(), c: 'green' },
+    { l: 'High-yield EPIC grads', v: allVolunteers.filter(v => v.epic && v.tier === 'High Yield').length.toLocaleString(), c: 'gold' },
+    { l: 'Active EPIC grads', v: allVolunteers.filter(v => v.epic && v.tier === 'Active').length.toLocaleString(), c: 'green' },
+    { l: 'Emerging EPIC grads', v: allVolunteers.filter(v => v.epic && v.tier === 'Emerging').length.toLocaleString(), c: 'teal' },
+    { l: 'Emails to lawmakers', v: totalEmails.toLocaleString(), c: '' },
+    { l: 'Calls to lawmakers', v: totalCalls.toLocaleString(), c: 'green' },
+    { l: "Missy's 1:1s (2026)", v: missy26Count.toLocaleString(), c: 'teal' },
+    { l: "Ty'Sheka's 1:1s", v: tyshekaCount.toLocaleString(), c: 'gold' },
+  ].map(k => `<div class="kpi"><div class="kpi-label">${k.l}</div><div class="kpi-val ${k.c}">${k.v}</div></div>`).join('');
+
+  const tierCounts = { Champion: champions, 'High Yield': highYield, Active: active, Emerging: emerging, Inactive: inactive };
+  const tierColors = { Champion: '#D85C0F', 'High Yield': '#142B4D', Active: '#2E8B57', Emerging: '#5B6B84', Inactive: '#E7EAF1' };
+  const tierDisplayNames = { Inactive: 'Should Connect With' };
+  const maxT = Math.max(...Object.values(tierCounts));
+  document.getElementById('tierBars').innerHTML = Object.entries(tierCounts).map(([name, count]) =>
+    `<div class="tier-row">
+      <span class="tier-label">${tierDisplayNames[name] || name}</span>
+      <div class="tier-bar-wrap"><div class="tier-bar" style="width:${Math.round(count / maxT * 100)}%;background:${tierColors[name]}"></div></div>
+      <span class="tier-count">${count.toLocaleString()}</span>
+    </div>`).join('');
+
+  const medals = ['🥇', '🥈', '🥉'];
+  document.getElementById('top10Table').innerHTML =
+    `<thead><tr><th></th><th>Name</th><th>Actions</th><th>C'26</th><th>C'25</th></tr></thead><tbody>` +
+    allVolunteers.slice(0, 10).map((v, i) => `<tr>
+      <td style="font-size:15px">${medals[i] || `<span style="font-size:12px;color:#aaa">#${i + 1}</span>`}</td>
+      <td style="font-weight:600;font-size:13px">${v.name}</td>
+      <td style="font-size:15px;font-weight:700;color:#142B4D">${v.actions}</td>
+      <td>${dot(v.cap26)}</td><td>${dot(v.cap25)}</td>
+    </tr>`).join('') + '</tbody>';
+
+  document.getElementById('twoCol').classList.remove('hidden');
+  document.getElementById('fullCard').classList.remove('hidden');
+  document.getElementById('emergingCard').classList.remove('hidden');
+  document.getElementById('activeCard').classList.remove('hidden');
+  document.getElementById('inactiveCard').classList.remove('hidden');
+  document.getElementById('countyCard').classList.remove('hidden');
+  document.getElementById('chartCard').classList.remove('hidden');
+  document.getElementById('lawmakerCard').classList.remove('hidden');
+
+  filtered = allVolunteers.filter(v => v.actions >= 6);
+  currentPage = 1;
+  renderTable();
+
+  emergingFiltered = allVolunteers.filter(v => v.tier === 'Emerging');
+  emergingPage = 1;
+  renderEmergingTable();
+
+  activeFiltered = allVolunteers.filter(v => v.tier === 'Active');
+  activePage = 1;
+  renderActiveTable();
+
+  inactiveFiltered = allVolunteers.filter(v => v.tier === 'Inactive');
+  inactivePage = 1;
+  renderInactiveTable();
+
+  countyFiltered = [...countyData];
+  countyPage = 1;
+  renderCountyTable();
+
+  const sortedMonths = Object.keys(monthly).sort((a, b) => new Date(a) - new Date(b));
+  // Lawmaker bar chart
+  const wrap = document.getElementById('lawmakerChartWrap');
+  if (lawmakerData.length > 0) {
+    wrap.innerHTML = '';
+    const h = Math.max(300, lawmakerData.length * 32 + 60);
+    wrap.style.height = h + 'px';
+    const canvas = document.createElement('canvas');
+    canvas.id = 'lawmakerChart';
+    wrap.appendChild(canvas);
+    if (window._lawmakerChart) window._lawmakerChart.destroy();
+    window._lawmakerChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: lawmakerData.map(d => d[0]),
+        datasets: [{ label: 'Emails sent', data: lawmakerData.map(d => d[1]),
+          backgroundColor: '#F37021', borderWidth: 0, borderRadius: 0 }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, ticks: { precision: 0, font: { family: 'Inter', size: 10 } }, grid: { color: '#E7EAF1' } },
+          y: { ticks: { font: { family: 'Inter', size: 11 } }, grid: { display: false } }
+        }
+      }
+    });
+  } else {
+    wrap.innerHTML = '<p style="font-size:13px;color:var(--navy-soft);padding:1rem 0">No data yet — add rows to the "Emails sent to elected officials" sheet.</p>';
+  }
+
+  if (chartInst) { chartInst.destroy(); }
+  chartInst = new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+      labels: sortedMonths,
+      datasets: [{ label: 'Attendees', data: sortedMonths.map(k => monthly[k]),
+        backgroundColor: '#142B4D', borderWidth: 0, borderRadius: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { family: 'Inter', size: 10 }, maxRotation: 45, autoSkip: false }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { precision: 0, font: { family: 'Inter', size: 10 } }, grid: { color: '#E7EAF1' } }
+      }
+    }
+  });
+}
+
+function emailPhoneCells(v) {
+  const gmailUrl = v.email ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(v.email)}` : '';
+  const email = v.email ? `<a href="${gmailUrl}" target="_blank" rel="noopener" title="Compose in Gmail" style="color:inherit;text-decoration:none">${v.email}</a>` : '—';
+  const phone = v.phone ? `<a href="tel:${v.phone}" style="color:inherit;text-decoration:none">${v.phone}</a>` : '—';
+  const county = v.county || '—';
+  return `<td style="font-size:12px;color:var(--navy-soft)">${email}</td><td style="font-size:12px;color:var(--navy-soft)">${phone}</td><td style="font-size:12px;color:var(--navy-soft)">${county}</td>`;
+}
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const t = document.getElementById('tierFilter').value;
+  filtered = allVolunteers.filter(v => v.actions >= 6 && (!q || v.name.toLowerCase().includes(q) || (v.county || '').toLowerCase().includes(q)) && (!t || v.tier === t));
+  currentPage = 1;
+  renderTable();
+}
+
+function renderTable() {
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const page = filtered.slice(start, start + PAGE_SIZE);
+  document.getElementById('fullBody').innerHTML = page.map((v, i) => `<tr>
+    <td style="color:#aaa;font-size:13px">${start + i + 1}</td>
+    <td style="font-weight:600;font-size:13px">${v.name}</td>
+    ${emailPhoneCells(v)}
+    <td style="font-size:15px;font-weight:700;color:#142B4D">${v.actions}</td>
+    <td style="color:#888;font-size:12px">${v.lifetime}</td>
+    <td><span class="badge ${v.tier === 'Champion' ? 'b-c' : v.tier === 'High Yield' ? 'b-h' : 'b-a'}">${v.tier}</span></td>
+    <td>${dot(v.cap26)}</td><td>${dot(v.cap25)}</td>
+    <td>${dot(v.oo)}</td><td>${dot(v.epic)}</td>
+  </tr>`).join('');
+  const pages = Math.ceil(filtered.length / PAGE_SIZE);
+  document.getElementById('pageInfo').textContent = `${start + 1}–${Math.min(start + PAGE_SIZE, filtered.length)} of ${filtered.length}`;
+  document.getElementById('prevBtn').disabled = currentPage <= 1;
+  document.getElementById('nextBtn').disabled = currentPage >= pages;
+}
+
+function changePage(dir) {
+  currentPage = Math.max(1, Math.min(Math.ceil(filtered.length / PAGE_SIZE), currentPage + dir));
+  renderTable();
+}
+
+function filterEmerging() {
+  const q = document.getElementById('emergingSearch').value.toLowerCase();
+  emergingFiltered = allVolunteers.filter(v => v.tier === 'Emerging' && (!q || v.name.toLowerCase().includes(q) || (v.county || '').toLowerCase().includes(q)));
+  emergingPage = 1;
+  renderEmergingTable();
+}
+
+function renderEmergingTable() {
+  const start = (emergingPage - 1) * EMERGING_PAGE_SIZE;
+  const page = emergingFiltered.slice(start, start + EMERGING_PAGE_SIZE);
+  document.getElementById('emergingBody').innerHTML = page.map((v, i) => `<tr>
+    <td style="color:#aaa;font-size:13px">${start + i + 1}</td>
+    <td style="font-weight:600;font-size:13px">${v.name}</td>
+    ${emailPhoneCells(v)}
+    <td style="font-size:15px;font-weight:700;color:#142B4D">${v.actions}</td>
+    <td style="color:#888;font-size:12px">${v.lifetime}</td>
+    <td>${dot(v.cap26)}</td><td>${dot(v.cap25)}</td>
+    <td>${dot(v.oo)}</td><td>${dot(v.epic)}</td>
+  </tr>`).join('');
+  const pages = Math.ceil(emergingFiltered.length / EMERGING_PAGE_SIZE);
+  document.getElementById('emergingPageInfo').textContent = `${start + 1}–${Math.min(start + EMERGING_PAGE_SIZE, emergingFiltered.length)} of ${emergingFiltered.length}`;
+  document.getElementById('emergingPrevBtn').disabled = emergingPage <= 1;
+  document.getElementById('emergingNextBtn').disabled = emergingPage >= pages;
+}
+
+function changeEmergingPage(dir) {
+  const pages = Math.ceil(emergingFiltered.length / EMERGING_PAGE_SIZE);
+  emergingPage = Math.max(1, Math.min(pages, emergingPage + dir));
+  renderEmergingTable();
+}
+
+function filterActive() {
+  const q = document.getElementById('activeSearch').value.toLowerCase();
+  activeFiltered = allVolunteers.filter(v => v.tier === 'Active' && (!q || v.name.toLowerCase().includes(q) || (v.county || '').toLowerCase().includes(q)));
+  activePage = 1;
+  renderActiveTable();
+}
+
+function renderActiveTable() {
+  const start = (activePage - 1) * ACTIVE_PAGE_SIZE;
+  const page = activeFiltered.slice(start, start + ACTIVE_PAGE_SIZE);
+  document.getElementById('activeBody').innerHTML = page.map((v, i) => `<tr>
+    <td style="color:#aaa;font-size:13px">${start + i + 1}</td>
+    <td style="font-weight:600;font-size:13px">${v.name}</td>
+    ${emailPhoneCells(v)}
+    <td style="font-size:15px;font-weight:700;color:#142B4D">${v.actions}</td>
+    <td style="color:#888;font-size:12px">${v.lifetime}</td>
+    <td><span class="badge b-a">Active</span></td>
+    <td>${dot(v.cap26)}</td><td>${dot(v.cap25)}</td>
+    <td>${dot(v.oo)}</td><td>${dot(v.epic)}</td>
+  </tr>`).join('');
+  const pages = Math.ceil(activeFiltered.length / ACTIVE_PAGE_SIZE);
+  document.getElementById('activePageInfo').textContent = `${start + 1}–${Math.min(start + ACTIVE_PAGE_SIZE, activeFiltered.length)} of ${activeFiltered.length}`;
+  document.getElementById('activePrevBtn').disabled = activePage <= 1;
+  document.getElementById('activeNextBtn').disabled = activePage >= pages;
+}
+
+function changeActivePage(dir) {
+  const pages = Math.ceil(activeFiltered.length / ACTIVE_PAGE_SIZE);
+  activePage = Math.max(1, Math.min(pages, activePage + dir));
+  renderActiveTable();
+}
+
+function filterInactive() {
+  const q = document.getElementById('inactiveSearch').value.toLowerCase();
+  inactiveFiltered = allVolunteers.filter(v => v.tier === 'Inactive' && (!q || v.name.toLowerCase().includes(q) || (v.county || '').toLowerCase().includes(q)));
+  inactivePage = 1;
+  renderInactiveTable();
+}
+
+function renderInactiveTable() {
+  const start = (inactivePage - 1) * INACTIVE_PAGE_SIZE;
+  const page = inactiveFiltered.slice(start, start + INACTIVE_PAGE_SIZE);
+  document.getElementById('inactiveBody').innerHTML = page.map((v, i) => `<tr>
+    <td style="color:#aaa;font-size:13px">${start + i + 1}</td>
+    <td style="font-weight:600;font-size:13px">${v.name}</td>
+    ${emailPhoneCells(v)}
+    <td style="font-size:15px;font-weight:700;color:#142B4D">${v.actions}</td>
+    <td style="color:#888;font-size:12px">${v.lifetime}</td>
+    <td>${dot(v.cap26)}</td><td>${dot(v.cap25)}</td>
+    <td>${dot(v.oo)}</td><td>${dot(v.epic)}</td>
+  </tr>`).join('');
+  const pages = Math.ceil(inactiveFiltered.length / INACTIVE_PAGE_SIZE);
+  document.getElementById('inactivePageInfo').textContent = `${start + 1}–${Math.min(start + INACTIVE_PAGE_SIZE, inactiveFiltered.length)} of ${inactiveFiltered.length}`;
+  document.getElementById('inactivePrevBtn').disabled = inactivePage <= 1;
+  document.getElementById('inactiveNextBtn').disabled = inactivePage >= pages;
+}
+
+function changeInactivePage(dir) {
+  const pages = Math.ceil(inactiveFiltered.length / INACTIVE_PAGE_SIZE);
+  inactivePage = Math.max(1, Math.min(pages, inactivePage + dir));
+  renderInactiveTable();
+}
+
+function filterCounty() {
+  const q = document.getElementById('countySearch').value.toLowerCase();
+  countyFiltered = countyData.filter(([county]) => !q || county.toLowerCase().includes(q));
+  countyPage = 1;
+  renderCountyTable();
+}
+
+function renderCountyTable() {
+  const start = (countyPage - 1) * COUNTY_PAGE_SIZE;
+  const page = countyFiltered.slice(start, start + COUNTY_PAGE_SIZE);
+  document.getElementById('countyBody').innerHTML = page.map(([county, count], i) => `<tr>
+    <td style="color:#aaa;font-size:13px">${start + i + 1}</td>
+    <td style="font-weight:600;font-size:13px">${county}</td>
+    <td style="font-size:15px;font-weight:700;color:#142B4D">${count.toLocaleString()}</td>
+  </tr>`).join('');
+  const pages = Math.ceil(countyFiltered.length / COUNTY_PAGE_SIZE);
+  document.getElementById('countyPageInfo').textContent = `${start + 1}–${Math.min(start + COUNTY_PAGE_SIZE, countyFiltered.length)} of ${countyFiltered.length} counties`;
+  document.getElementById('countyPrevBtn').disabled = countyPage <= 1;
+  document.getElementById('countyNextBtn').disabled = countyPage >= pages;
+}
+
+function changeCountyPage(dir) {
+  const pages = Math.ceil(countyFiltered.length / COUNTY_PAGE_SIZE);
+  countyPage = Math.max(1, Math.min(pages, countyPage + dir));
+  renderCountyTable();
+}
+
+// Auto-load on page open
+renderPending11s();
+window.addEventListener('load', () => loadData().catch(e => {
+  document.getElementById('errMsg').textContent = 'Error loading data: ' + e.message;
+  setStatus('error', 'Failed to load');
+}));
+</script>
+</body>
+</html>
