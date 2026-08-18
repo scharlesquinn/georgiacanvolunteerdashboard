@@ -154,6 +154,10 @@
   .tier-count { font-family:'Inter', sans-serif; font-weight: 600; font-size: 12px; color: var(--navy-soft); width: 44px; text-align: right; }
 
   .vol-table { width: 100%; border-collapse: collapse; font-family:'Inter', sans-serif; font-size: 13px; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 10px; }
+  .table-scroll .vol-table { width: auto; min-width: 100%; }
+  .table-scroll .vol-table th, .table-scroll .vol-table td { white-space: nowrap; }
+  .table-scroll .vol-table td:nth-child(2), .table-scroll .vol-table th:nth-child(2) { white-space: normal; min-width: 130px; }
   .vol-table th {
     font-family:'Inter', sans-serif; font-size: 11px; font-weight: 700; color: var(--navy-soft);
     text-align: left; padding: 12px 10px; background: var(--bg-soft); text-transform: uppercase; letter-spacing: .04em;
@@ -404,6 +408,7 @@
         <option value="Active">Active</option>
       </select>
     </div>
+    <div class="table-scroll">
     <table class="vol-table">
       <thead><tr>
         <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>County</th><th>Last Action Date</th><th>Actions</th><th>Total Memberships (P2A)</th><th>Tier</th>
@@ -414,6 +419,7 @@
       </tr></thead>
       <tbody id="fullBody"></tbody>
     </table>
+    </div>
     <div class="pager">
       <span id="pageInfo"></span>
       <button id="prevBtn" onclick="changePage(-1)">← Prev</button>
@@ -426,12 +432,14 @@
     <div class="search-row">
       <input type="text" id="emergingSearch" placeholder="Search by name or county..." oninput="filterEmerging()">
     </div>
+    <div class="table-scroll">
     <table class="vol-table">
       <thead><tr>
         <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>County</th><th>Last Action Date</th><th>Actions</th><th>Total Memberships (P2A)</th><th>C'26</th><th>C'25</th><th>1:1</th><th>EPIC</th>
       </tr></thead>
       <tbody id="emergingBody"></tbody>
     </table>
+    </div>
     <div class="pager">
       <span id="emergingPageInfo"></span>
       <button id="emergingPrevBtn" onclick="changeEmergingPage(-1)">← Prev</button>
@@ -444,6 +452,7 @@
     <div class="search-row">
       <input type="text" id="activeSearch" placeholder="Search by name or county..." oninput="filterActive()">
     </div>
+    <div class="table-scroll">
     <table class="vol-table">
       <thead><tr>
         <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>County</th><th>Last Action Date</th><th>Actions</th><th>Total Memberships (P2A)</th><th>Tier</th>
@@ -454,6 +463,7 @@
       </tr></thead>
       <tbody id="activeBody"></tbody>
     </table>
+    </div>
     <div class="pager">
       <span id="activePageInfo"></span>
       <button id="activePrevBtn" onclick="changeActivePage(-1)">← Prev</button>
@@ -467,12 +477,14 @@
     <div class="search-row">
       <input type="text" id="inactiveSearch" placeholder="Search by name or county..." oninput="filterInactive()">
     </div>
+    <div class="table-scroll">
     <table class="vol-table">
       <thead><tr>
         <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>County</th><th>Last Action Date</th><th>Actions</th><th>Total Memberships (P2A)</th><th>C'26</th><th>C'25</th><th>1:1</th><th>EPIC</th>
       </tr></thead>
       <tbody id="inactiveBody"></tbody>
     </table>
+    </div>
     <div class="pager">
       <span id="inactivePageInfo"></span>
       <button id="inactivePrevBtn" onclick="changeInactivePage(-1)">← Prev</button>
